@@ -140,6 +140,28 @@
   .hist-row{ display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--panel); border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size:13px; flex-wrap:wrap; }
   .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:var(--panel-3); border:1px solid var(--gold); color:var(--canvas); padding:11px 20px; border-radius:8px; font-size:13px; transition:all .25s; pointer-events:none; z-index:300; max-width:90vw; text-align:center; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .event-card{ background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:18px; }
+  .event-card.headline{ border-color:var(--gold); box-shadow:0 0 0 1px rgba(155,109,255,0.25), 0 10px 30px rgba(0,0,0,0.4); }
+  .event-poster{ width:100%; display:block; border-bottom:1px solid var(--border); }
+  .event-body{ padding:18px 20px; }
+  .event-title{ font-family:'Oswald'; font-size:22px; color:var(--canvas); text-transform:uppercase; }
+  .event-meta{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px; font-size:12px; color:var(--text-dim); }
+  .event-blurb{ margin-top:10px; font-size:13.5px; color:var(--text-dim); line-height:1.6; }
+  .countdown{ display:flex; gap:10px; margin:16px 0 4px; flex-wrap:wrap; }
+  .cd-unit{ background:var(--panel-3); border:1px solid var(--border); border-radius:9px; padding:9px 14px; text-align:center; min-width:64px; }
+  .cd-unit .n{ font-family:'JetBrains Mono'; font-size:22px; font-weight:700; color:var(--gold-bright); line-height:1; }
+  .cd-unit .l{ font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-dim); font-family:'Oswald'; margin-top:4px; }
+  .card-list{ margin-top:16px; border-top:1px solid var(--panel-3); }
+  .card-list-head{ font-family:'Oswald'; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold-bright); margin:14px 0 4px; }
+  .bout{ display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--panel-3); flex-wrap:wrap; }
+  .bout:last-child{ border-bottom:none; }
+  .bout-num{ font-family:'JetBrains Mono'; font-size:11px; color:var(--text-dim); width:22px; flex-shrink:0; }
+  .bout-side{ font-size:14px; color:var(--canvas); font-weight:600; }
+  .bout-vs{ font-family:'Oswald'; font-size:11px; color:var(--gold); letter-spacing:0.08em; }
+  .bout-tags{ display:flex; gap:6px; margin-left:auto; flex-wrap:wrap; }
+  .bout-tag{ font-size:9.5px; padding:3px 8px; border-radius:12px; font-family:'Oswald'; text-transform:uppercase; background:rgba(155,109,255,0.12); color:var(--gold-bright); }
+  .bout-tag.title{ background:rgba(224,180,92,0.15); color:var(--amber); }
+  .bout-tag.bet{ background:rgba(62,142,130,0.15); color:var(--teal); }
 </style>
 </head>
 <body>
@@ -154,6 +176,7 @@
 
 <nav class="tabs">
   <button data-page="home" class="active" onclick="go('home')">Home</button>
+  <button data-page="upcoming" onclick="go('upcoming')">Upcoming</button>
   <button data-page="predictions" onclick="go('predictions')">Predictions</button>
   <button data-page="leaderboard" onclick="go('leaderboard')">Leaderboard</button>
   <button data-page="roster" onclick="go('roster')">Roster</button>
@@ -183,6 +206,11 @@
   <div class="page" id="page-champions">
     <h2 class="section-title">Championships</h2>
     <div id="titlesArea"></div>
+  </div>
+
+  <div class="page" id="page-upcoming">
+    <h2 class="section-title">Upcoming Shows</h2>
+    <div id="upcomingArea"></div>
   </div>
 
   <div class="page" id="page-predictions">
@@ -269,6 +297,7 @@ function go(page){
   window.scrollTo({ top:0, behavior:'smooth' });
   if(page === 'account') renderAccount();
   if(page === 'leaderboard') renderLeaderboard();
+  if(page === 'upcoming') renderUpcoming();
 }
 function avatar(url, name, cls){
   if(url) return `<img class="${cls||''}" src="${esc(url)}" alt="${esc(name)}">`;
@@ -397,7 +426,7 @@ async function loadAll(){
     db.from('v_records').select('*'),
     db.from('v_method_breakdown').select('*'),
     db.from('v_current_champions').select('*'),
-    db.from('shows').select('*').order('date', { ascending:false, nullsFirst:false }),
+    db.from('shows').select('*').eq('published', true).order('date', { ascending:false, nullsFirst:false }),
     db.from('show_matches').select('*').order('position'),
     db.from('titles').select('*'),
     db.from('title_history').select('*').order('won_date'),
@@ -640,6 +669,94 @@ async function toggleVisibility(){
   toast(hidden ? 'You are hidden from the leaderboard' : 'You are visible on the leaderboard');
 }
 
+/* ---------------- UPCOMING SHOWS ---------------- */
+function showDateObj(s){
+  if(!s.date) return null;
+  return new Date(s.date + 'T' + (s.start_time || '19:00') + ':00');
+}
+function isUpcoming(s){
+  const ms = showMatches.filter(m => m.show_id === s.id);
+  if(ms.length && ms.every(m => m.resolved)) return false;
+  const d = showDateObj(s);
+  if(!d) return true;
+  return d.getTime() > Date.now() - 6*60*60*1000; // stays "upcoming" for 6h after start
+}
+function upcomingShows(){
+  return shows.filter(isUpcoming).sort((a,b) => {
+    const da = showDateObj(a), dbb = showDateObj(b);
+    if(!da) return 1; if(!dbb) return -1;
+    return da - dbb;
+  });
+}
+function countdownHtml(s){
+  const d = showDateObj(s);
+  if(!d) return '';
+  const diff = d.getTime() - Date.now();
+  if(diff <= 0) return `<div class="countdown"><div class="cd-unit" style="border-color:var(--amber);"><div class="n" style="color:var(--amber); font-size:15px;">LIVE SOON</div><div class="l">Bell time passed</div></div></div>`;
+  const dd = Math.floor(diff/86400000), hh = Math.floor(diff/3600000)%24, mm = Math.floor(diff/60000)%60, ss = Math.floor(diff/1000)%60;
+  const u = (n,l) => `<div class="cd-unit"><div class="n">${String(n).padStart(2,'0')}</div><div class="l">${l}</div></div>`;
+  return `<div class="countdown" data-cd="${s.id}">${u(dd,'Days')}${u(hh,'Hours')}${u(mm,'Mins')}${u(ss,'Secs')}</div>`;
+}
+function boutHtml(m, i){
+  const type = TYPE_LABELS[m.type_key] || m.type_key;
+  const title = m.title_id ? (titles.find(t=>t.id===m.title_id)||{}).name : null;
+  let sides;
+  if(m.mode === 'singles') sides = `<span class="bout-side">${esc(nameOf(m.p1))}</span><span class="bout-vs">VS</span><span class="bout-side">${esc(nameOf(m.p2))}</span>`;
+  else if(m.mode === 'tag') sides = `<span class="bout-side">${(m.team_a||[]).map(nameOf).map(esc).join(' & ')}</span><span class="bout-vs">VS</span><span class="bout-side">${(m.team_b||[]).map(nameOf).map(esc).join(' & ')}</span>`;
+  else sides = `<span class="bout-side">${(m.participants||[]).map(nameOf).map(esc).join(' · ')}</span>`;
+  return `<div class="bout"><span class="bout-num">${i+1}</span>${sides}
+    <span class="bout-tags">
+      ${title?`<span class="bout-tag title">🏆 ${esc(title)}</span>`:''}
+      <span class="bout-tag">${esc(type)}</span>
+      ${m.betting_open?'<span class="bout-tag bet">Predictions Open</span>':''}
+    </span></div>`;
+}
+function eventCardHtml(s, headline){
+  const ms = showMatches.filter(m => m.show_id === s.id).sort((a,b)=>a.position-b.position);
+  const typeMap = { weekly:['Weekly Show','weekly'], ple:['Premium Live Event','ple'], house:['House Show','house'] };
+  const [tl, tc] = typeMap[s.show_type] || typeMap.weekly;
+  const d = showDateObj(s);
+  const dateStr = s.date ? new Date(s.date+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'}) : 'Date TBA';
+  const timeStr = s.start_time ? new Date('2000-01-01T'+s.start_time+':00').toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '';
+  return `<div class="event-card ${headline?'headline':''}">
+    ${s.poster_url?`<img class="event-poster" src="${esc(s.poster_url)}" alt="${esc(s.name)} poster">`:''}
+    <div class="event-body">
+      <div class="event-title">${esc(s.name)}</div>
+      <div class="event-meta">
+        <span class="show-type-badge ${tc}" style="margin:0;">${tl}</span>
+        <span>${dateStr}${timeStr?' · '+timeStr:''}</span>
+        ${s.venue?`<span>· ${esc(s.venue)}</span>`:''}
+      </div>
+      ${s.announcement?`<div class="event-blurb">${esc(s.announcement)}</div>`:''}
+      ${headline ? countdownHtml(s) : ''}
+      ${ms.length ? `<div class="card-list"><div class="card-list-head">The Card</div>${ms.map(boutHtml).join('')}</div>`
+                  : '<div class="event-blurb" style="font-style:italic;">Card to be announced.</div>'}
+    </div>
+  </div>`;
+}
+function renderUpcoming(){
+  const el = document.getElementById('upcomingArea');
+  if(!el) return;
+  const list = upcomingShows();
+  el.innerHTML = list.length
+    ? list.map((s,i) => eventCardHtml(s, i===0)).join('')
+    : '<div class="empty">No shows announced yet. Check back soon.</div>';
+}
+let cdTimer = null;
+function startCountdownTicker(){
+  clearInterval(cdTimer);
+  cdTimer = setInterval(() => {
+    document.querySelectorAll('[data-cd]').forEach(node => {
+      const s = shows.find(x => x.id === node.dataset.cd);
+      if(!s) return;
+      const wrap = document.createElement('div');
+      wrap.innerHTML = countdownHtml(s);
+      const fresh = wrap.firstElementChild;
+      if(fresh) node.innerHTML = fresh.innerHTML;
+    });
+  }, 1000);
+}
+
 function renderHome(){
   const champEl = document.getElementById('homeChamps');
   champEl.innerHTML = champions.length ? champions.map(c => `
@@ -672,11 +789,10 @@ function renderHome(){
     <div class="lb-card"><h4>Pinfall Leaders</h4>${mLead('pin').slice(0,5).map((x,i)=>row(i,x.name,x.wins+' pins')).join('')||'<div style="color:var(--text-dim); font-size:12px;">No pins yet.</div>'}</div>
     <div class="lb-card"><h4>Submission Specialists</h4>${mLead('sub').slice(0,5).map((x,i)=>row(i,x.name,x.wins+' taps')).join('')||'<div style="color:var(--text-dim); font-size:12px;">No taps yet.</div>'}</div>`;
 
-  const today = new Date().toISOString().slice(0,10);
-  const upcoming = shows.filter(s => s.date && s.date >= today).sort((a,b)=>a.date.localeCompare(b.date))[0];
-  document.getElementById('homeNext').innerHTML = upcoming
-    ? `<div class="show-item"><div class="show-head"><span class="name">${esc(upcoming.name)}</span><span class="status-pill upcoming">${new Date(upcoming.date+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})}</span></div></div>`
-    : '<div class="empty">No upcoming show scheduled — stay vigilant.</div>';
+  const nextUp = upcomingShows()[0];
+  document.getElementById('homeNext').innerHTML = nextUp
+    ? eventCardHtml(nextUp, true) + (upcomingShows().length > 1 ? `<button class="btn ghost small" onclick="go('upcoming')">See all ${upcomingShows().length} upcoming shows</button>` : '')
+    : '<div class="empty">No show announced yet — stay vigilant.</div>';
 }
 
 function renderRosterPage(){
@@ -739,9 +855,10 @@ function matchLine(m){
 }
 function renderResultsPage(){
   const el = document.getElementById('showsArea');
-  if(!shows.length){ el.innerHTML = '<div class="empty">No shows on the books yet.</div>'; return; }
+  const past = shows.filter(s => !isUpcoming(s));
+  if(!past.length){ el.innerHTML = '<div class="empty">No completed shows yet — check the Upcoming tab for what\'s next.</div>'; return; }
   const typeMap = { weekly:['Weekly','weekly'], ple:['PLE','ple'], house:['House Show','house'] };
-  el.innerHTML = shows.map(s => {
+  el.innerHTML = past.map(s => {
     const ms = showMatches.filter(m => m.show_id === s.id);
     const done = ms.length > 0 && ms.every(m => m.resolved);
     const [tl, tc] = typeMap[s.show_type] || typeMap.weekly;
@@ -756,8 +873,9 @@ function renderResultsPage(){
 }
 
 function renderAll(){
-  renderHome(); renderBets(); renderLeaderboard();
+  renderHome(); renderUpcoming(); renderBets(); renderLeaderboard();
   renderRosterPage(); renderChampionsPage(); renderResultsPage(); renderAccount();
+  startCountdownTicker();
 }
 
 db.auth.onAuthStateChange(async (event) => {
