@@ -166,6 +166,14 @@
   .bout-tag.pending{ background:rgba(224,180,92,0.16); color:var(--amber); }
   .bout-tag.done{ background:rgba(155,109,255,0.18); color:var(--gold-bright); }
   .spoiler-note{ font-size:11.5px; color:var(--amber); background:rgba(224,180,92,0.08); border:1px dashed rgba(224,180,92,0.35); border-radius:7px; padding:8px 11px; margin-top:12px; }
+  .bout-art{ height:52px; border-radius:6px; border:1px solid var(--border); cursor:zoom-in; flex-shrink:0; transition:transform .15s, border-color .15s; }
+  .bout-art:hover{ transform:scale(1.05); border-color:var(--gold); }
+  .bout-art.sm{ height:40px; }
+  .lightbox{ position:fixed; inset:0; background:rgba(6,5,10,0.92); display:none; align-items:center; justify-content:center; z-index:400; padding:24px; cursor:zoom-out; }
+  .lightbox.show{ display:flex; }
+  .lightbox img{ max-width:min(92vw, 800px); max-height:88vh; border-radius:10px; border:1px solid var(--gold); box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+  .lightbox-close{ position:absolute; top:18px; right:22px; background:var(--panel-2); border:1px solid var(--border); color:var(--text); width:38px; height:38px; border-radius:50%; font-size:15px; cursor:pointer; }
+  .lightbox-close:hover{ border-color:var(--gold); color:var(--gold-bright); }
 </style>
 </head>
 <body>
@@ -272,6 +280,11 @@
     <button class="btn" style="width:100%;" id="setupNameBtn" onclick="submitSetupName()">Lock It In</button>
     <div class="modal-err" id="nameErr"></div>
   </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" alt="">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -710,7 +723,8 @@ function boutHtml(m, i){
   else sides = `<span class="bout-side">${(m.participants||[]).map(nameOf).map(esc).join(' · ')}</span>`;
   const state = m.resolved ? `<span class="bout-tag done">✓ ${esc(nameOf(m.winner) || 'Result in')}</span>`
             : m.has_result ? '<span class="bout-tag pending">⏳ Result Pending</span>' : '';
-  return `<div class="bout"><span class="bout-num">${i+1}</span>${sides}
+  const art = m.poster_url ? `<img class="bout-art" src="${esc(m.poster_url)}" onclick="openLightbox('${esc(m.poster_url)}')" alt="match art">` : '';
+  return `<div class="bout">${art}<span class="bout-num">${i+1}</span>${sides}
     <span class="bout-tags">
       ${title?`<span class="bout-tag title">🏆 ${esc(title)}</span>`:''}
       <span class="bout-tag">${esc(type)}</span>
@@ -843,6 +857,7 @@ function renderChampionsPage(){
 
 function matchLine(m){
   const type = TYPE_LABELS[m.type_key] || m.type_key;
+  const art = m.poster_url ? `<img class="bout-art sm" src="${esc(m.poster_url)}" onclick="openLightbox('${esc(m.poster_url)}')" alt="match art">` : '';
   const titleFlag = m.title_id ? '<span class="title-flag">🏆</span>' : '';
   const method = m.resolved && m.method && m.method !== 'tbd' ? ` <span class="dim">(${METHOD_LABELS[m.method]||m.method})</span>` : '';
   if(!m.resolved){
@@ -853,7 +868,7 @@ function matchLine(m){
     const flag = m.has_result
       ? '<span class="status-pill pendingres" style="margin-left:auto;">⏳ Result Pending</span>'
       : (m.betting_open ? '<span class="status-pill live" style="margin-left:auto;">Betting Open</span>' : '');
-    return `<div class="m-line"><span class="type">${type}</span>${titleFlag}<span>${names}</span>${flag}</div>`;
+    return `<div class="m-line">${art}<span class="type">${type}</span>${titleFlag}<span>${names}</span>${flag}</div>`;
   }
   let core;
   if(m.mode === 'singles') core = `<span class="winner">${esc(nameOf(m.winner))}</span><span class="dim">def.</span><span>${esc(nameOf(m.loser))}</span>${method}`;
@@ -861,7 +876,7 @@ function matchLine(m){
     const win = m.winning_team==='A'?m.team_a:m.team_b, lose = m.winning_team==='A'?m.team_b:m.team_a;
     core = `<span class="winner">${(win||[]).map(nameOf).map(esc).join(' & ')}</span><span class="dim">def.</span><span>${(lose||[]).map(nameOf).map(esc).join(' & ')}</span>${method}`;
   } else core = `<span class="winner">${esc(nameOf(m.winner))}</span><span class="dim">outlasted ${(m.participants||[]).length-1} others</span>${method}`;
-  return `<div class="m-line"><span class="type">${type}</span>${titleFlag}${core}${starsHtml(m.id)}</div>`;
+  return `<div class="m-line">${art}<span class="type">${type}</span>${titleFlag}${core}${starsHtml(m.id)}</div>`;
 }
 function renderResultsPage(){
   const el = document.getElementById('showsArea');
@@ -882,6 +897,15 @@ function renderResultsPage(){
     </div>`;
   }).join('');
 }
+
+function openLightbox(url){
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('show');
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeLightbox(); });
 
 function renderAll(){
   renderHome(); renderUpcoming(); renderBets(); renderLeaderboard();
