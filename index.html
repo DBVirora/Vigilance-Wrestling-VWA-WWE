@@ -162,6 +162,10 @@
   .bout-tag{ font-size:9.5px; padding:3px 8px; border-radius:12px; font-family:'Oswald'; text-transform:uppercase; background:rgba(155,109,255,0.12); color:var(--gold-bright); }
   .bout-tag.title{ background:rgba(224,180,92,0.15); color:var(--amber); }
   .bout-tag.bet{ background:rgba(62,142,130,0.15); color:var(--teal); }
+  .status-pill.pendingres{ background:rgba(224,180,92,0.16); color:var(--amber); }
+  .bout-tag.pending{ background:rgba(224,180,92,0.16); color:var(--amber); }
+  .bout-tag.done{ background:rgba(155,109,255,0.18); color:var(--gold-bright); }
+  .spoiler-note{ font-size:11.5px; color:var(--amber); background:rgba(224,180,92,0.08); border:1px dashed rgba(224,180,92,0.35); border-radius:7px; padding:8px 11px; margin-top:12px; }
 </style>
 </head>
 <body>
@@ -427,7 +431,7 @@ async function loadAll(){
     db.from('v_method_breakdown').select('*'),
     db.from('v_current_champions').select('*'),
     db.from('shows').select('*').eq('published', true).order('date', { ascending:false, nullsFirst:false }),
-    db.from('show_matches').select('*').order('position'),
+    db.from('v_public_matches').select('*').order('position'),
     db.from('titles').select('*'),
     db.from('title_history').select('*').order('won_date'),
     db.from('v_bet_pools').select('*'),
@@ -676,7 +680,7 @@ function showDateObj(s){
 }
 function isUpcoming(s){
   const ms = showMatches.filter(m => m.show_id === s.id);
-  if(ms.length && ms.every(m => m.resolved)) return false;
+  if(ms.length && ms.every(m => m.resolved)) return false;   // fully revealed = archived
   const d = showDateObj(s);
   if(!d) return true;
   return d.getTime() > Date.now() - 6*60*60*1000; // stays "upcoming" for 6h after start
@@ -704,11 +708,14 @@ function boutHtml(m, i){
   if(m.mode === 'singles') sides = `<span class="bout-side">${esc(nameOf(m.p1))}</span><span class="bout-vs">VS</span><span class="bout-side">${esc(nameOf(m.p2))}</span>`;
   else if(m.mode === 'tag') sides = `<span class="bout-side">${(m.team_a||[]).map(nameOf).map(esc).join(' & ')}</span><span class="bout-vs">VS</span><span class="bout-side">${(m.team_b||[]).map(nameOf).map(esc).join(' & ')}</span>`;
   else sides = `<span class="bout-side">${(m.participants||[]).map(nameOf).map(esc).join(' · ')}</span>`;
+  const state = m.resolved ? `<span class="bout-tag done">✓ ${esc(nameOf(m.winner) || 'Result in')}</span>`
+            : m.has_result ? '<span class="bout-tag pending">⏳ Result Pending</span>' : '';
   return `<div class="bout"><span class="bout-num">${i+1}</span>${sides}
     <span class="bout-tags">
       ${title?`<span class="bout-tag title">🏆 ${esc(title)}</span>`:''}
       <span class="bout-tag">${esc(type)}</span>
       ${m.betting_open?'<span class="bout-tag bet">Predictions Open</span>':''}
+      ${state}
     </span></div>`;
 }
 function eventCardHtml(s, headline){
@@ -731,6 +738,7 @@ function eventCardHtml(s, headline){
       ${headline ? countdownHtml(s) : ''}
       ${ms.length ? `<div class="card-list"><div class="card-list-head">The Card</div>${ms.map(boutHtml).join('')}</div>`
                   : '<div class="event-blurb" style="font-style:italic;">Card to be announced.</div>'}
+      ${ms.some(m => m.has_result && !m.resolved) ? '<div class="spoiler-note">⏳ This show is in progress — results appear here as each match airs.</div>' : ''}
     </div>
   </div>`;
 }
@@ -842,8 +850,10 @@ function matchLine(m){
     if(m.mode === 'singles') names = `${esc(nameOf(m.p1))} <span class="dim">vs</span> ${esc(nameOf(m.p2))}`;
     else if(m.mode === 'tag') names = `${(m.team_a||[]).map(nameOf).map(esc).join(' & ')} <span class="dim">vs</span> ${(m.team_b||[]).map(nameOf).map(esc).join(' & ')}`;
     else names = (m.participants||[]).map(nameOf).map(esc).join(' <span class="dim">vs</span> ');
-    const betFlag = m.betting_open ? '<span class="status-pill live" style="margin-left:auto;">Betting Open</span>' : '';
-    return `<div class="m-line"><span class="type">${type}</span>${titleFlag}<span>${names}</span>${betFlag}</div>`;
+    const flag = m.has_result
+      ? '<span class="status-pill pendingres" style="margin-left:auto;">⏳ Result Pending</span>'
+      : (m.betting_open ? '<span class="status-pill live" style="margin-left:auto;">Betting Open</span>' : '');
+    return `<div class="m-line"><span class="type">${type}</span>${titleFlag}<span>${names}</span>${flag}</div>`;
   }
   let core;
   if(m.mode === 'singles') core = `<span class="winner">${esc(nameOf(m.winner))}</span><span class="dim">def.</span><span>${esc(nameOf(m.loser))}</span>${method}`;
@@ -866,6 +876,7 @@ function renderResultsPage(){
       <div class="show-head">
         <span class="name">${esc(s.name)}<span class="show-type-badge ${tc}">${tl}</span></span>
         <span class="status-pill ${done?'complete':'upcoming'}">${s.date ? new Date(s.date+'T00:00:00').toLocaleDateString() : (done?'Complete':'Upcoming')}</span>
+        ${ms.some(m => m.has_result && !m.resolved) ? '<span class="status-pill pendingres">Results Rolling In</span>' : ''}
       </div>
       ${ms.map(matchLine).join('') || '<div class="m-line dim" style="color:var(--text-dim);">Card to be announced.</div>'}
     </div>`;
