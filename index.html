@@ -228,6 +228,20 @@
   </div>
 </div>
 
+<div class="modal-back" id="nameModal">
+  <div class="modal">
+    <h3>Choose Your Name</h3>
+    <div class="msub">This is how you'll appear on the leaderboard. You can change it later from My Account.</div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="setupName" maxlength="20" placeholder="3-20 characters" oninput="checkNameLive()">
+    </div>
+    <div id="nameHint" style="font-size:11.5px; min-height:16px; margin-bottom:12px; color:var(--text-dim);">Letters, numbers, spaces, dashes and underscores.</div>
+    <button class="btn" style="width:100%;" id="setupNameBtn" onclick="submitSetupName()">Lock It In</button>
+    <div class="modal-err" id="nameErr"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <footer>Vigilance Wrestling Association · Points are for fun only — no real money involved.</footer>
@@ -305,8 +319,53 @@ async function refreshUser(){
   if(me){
     const { data } = await db.from('profiles').select('*').eq('id', me.id).maybeSingle();
     myProfile = data || null;
+    maybePromptName();
   } else myProfile = null;
   renderAccountBar();
+}
+function needsName(){ return !!(me && myProfile && !myProfile.username_set); }
+function maybePromptName(){
+  if(needsName()){
+    document.getElementById('nameModal').classList.add('show');
+    const inp = document.getElementById('setupName');
+    inp.value = myProfile.display_name || '';
+    setTimeout(()=>inp.focus(), 100);
+  } else {
+    document.getElementById('nameModal').classList.remove('show');
+  }
+}
+let nameCheckTimer = null;
+function checkNameLive(){
+  const val = document.getElementById('setupName').value.trim();
+  const hint = document.getElementById('nameHint');
+  clearTimeout(nameCheckTimer);
+  if(val.length < 3){ hint.textContent = 'At least 3 characters.'; hint.style.color = 'var(--text-dim)'; return; }
+  if(!/^[A-Za-z0-9 _-]+$/.test(val)){ hint.textContent = 'Only letters, numbers, spaces, dashes and underscores.'; hint.style.color = 'var(--red)'; return; }
+  hint.textContent = 'Checking…'; hint.style.color = 'var(--text-dim)';
+  nameCheckTimer = setTimeout(async () => {
+    const { data, error } = await db.rpc('username_available', { p_name: val });
+    if(error) return;
+    if(data){ hint.textContent = '✓ ' + val + ' is available'; hint.style.color = 'var(--teal)'; }
+    else { hint.textContent = '✗ That name is taken'; hint.style.color = 'var(--red)'; }
+  }, 400);
+}
+async function submitSetupName(){
+  const val = document.getElementById('setupName').value;
+  const err = document.getElementById('nameErr');
+  const btn = document.getElementById('setupNameBtn');
+  err.style.display = 'none';
+  btn.disabled = true;
+  const { data, error } = await db.rpc('set_display_name', { p_name: val });
+  btn.disabled = false;
+  if(error){ err.textContent = cleanErr(error.message); err.style.display = 'block'; return; }
+  myProfile.display_name = data.display_name;
+  myProfile.username_set = true;
+  document.getElementById('nameModal').classList.remove('show');
+  renderAccountBar();
+  const { data:lb } = await db.from('v_leaderboard').select('*').order('balance',{ascending:false}).limit(100);
+  leaderboard = lb || [];
+  renderLeaderboard(); renderAccount();
+  toast('Welcome aboard, ' + data.display_name);
 }
 function renderAccountBar(){
   const el = document.getElementById('accountBar');
@@ -315,10 +374,11 @@ function renderAccountBar(){
       <button class="btn small" onclick="openAuth()">Sign In / Register</button>`;
     return;
   }
-  const nm = (myProfile && myProfile.display_name) || me.email || 'Fan';
+  const nm = (myProfile && myProfile.display_name) || 'Choose a name';
   const av = myProfile && myProfile.avatar_url;
+  const needs = needsName();
   el.innerHTML = `${av?`<img class="avatar-sm" src="${esc(av)}">`:''}
-    <span style="color:var(--canvas);">${esc(nm)}</span>
+    <span style="color:${needs?'var(--amber)':'var(--canvas)'}; ${needs?'cursor:pointer;" onclick="maybePromptName()':''}">${esc(nm)}</span>
     <span class="balance-chip">${(myProfile?myProfile.balance:0).toLocaleString()} pts</span>
     <button class="btn small ghost" onclick="claimDaily()">Daily +${economy.daily_bonus}</button>
     <button class="btn small ghost" onclick="signOut()">Sign Out</button>`;
@@ -391,6 +451,7 @@ function myBetOn(id){ return myBets.find(b => b.match_id === id); }
 function selectPick(id, pick){ picks[id] = pick; renderBets(); renderHome(); }
 async function submitBet(matchId){
   if(!me){ openAuth(); return; }
+  if(needsName()){ maybePromptName(); return; }
   const pick = picks[matchId];
   if(!pick){ toast('Pick a side first'); return; }
   const wager = parseInt(document.getElementById('wager-' + matchId).value, 10);
@@ -459,6 +520,7 @@ function ratingFor(id){ return ratings.find(r => r.match_id === id); }
 function myRatingFor(id){ const r = myRatings.find(x => x.match_id === id); return r ? r.stars : 0; }
 async function rateMatch(matchId, stars){
   if(!me){ openAuth(); return; }
+  if(needsName()){ maybePromptName(); return; }
   const { error } = await db.rpc('rate_match', { p_match_id: matchId, p_stars: stars });
   if(error){ toast(cleanErr(error.message)); return; }
   const ex = myRatings.find(x => x.match_id === matchId);
@@ -511,9 +573,14 @@ function renderAccount(){
       <div class="acct-stat"><div class="n">${winnings.toLocaleString()}</div><div class="l">Total Winnings</div></div>
     </div>
     <div style="background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:20px;">
-      <div class="field"><label>Display Name (shown on the leaderboard)</label>
-        <input type="text" id="dispName" maxlength="24" value="${esc((myProfile&&myProfile.display_name)||'')}"></div>
-      <button class="btn small" onclick="saveName()">Save Name</button>
+      <div class="field" style="margin-bottom:6px;"><label>Username (shown on the leaderboard)</label>
+        <input type="text" id="dispName" maxlength="20" value="${esc((myProfile&&myProfile.display_name)||'')}" oninput="checkAcctNameLive()"></div>
+      <div id="acctNameHint" style="font-size:11.5px; min-height:16px; margin-bottom:10px; color:var(--text-dim);">3-20 characters · letters, numbers, spaces, dashes, underscores</div>
+      <button class="btn small" onclick="saveName()">Save Username</button>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:14px; font-size:12.5px; color:var(--text-dim); cursor:pointer;">
+        <input type="checkbox" id="hideMe" ${myProfile && myProfile.hidden ? 'checked':''} onchange="toggleVisibility()">
+        Hide me from the public leaderboard
+      </label>
     </div>
     <h3 style="font-size:14px; color:var(--text-dim); margin-bottom:10px;">Prediction History</h3>
     ${myBets.length ? myBets.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(b => {
@@ -529,15 +596,48 @@ function renderAccount(){
         <span style="margin-left:auto; font-size:12px; color:var(--text-dim); font-family:'JetBrains Mono';">${b.wager.toLocaleString()} pts</span>${badge}</div>`;
     }).join('') : '<div class="empty">No predictions yet.</div>'}`;
 }
+let acctNameTimer = null;
+function checkAcctNameLive(){
+  const val = document.getElementById('dispName').value.trim();
+  const hint = document.getElementById('acctNameHint');
+  clearTimeout(acctNameTimer);
+  if(val.length < 3){ hint.textContent = 'At least 3 characters.'; hint.style.color='var(--text-dim)'; return; }
+  if(!/^[A-Za-z0-9 _-]+$/.test(val)){ hint.textContent='Only letters, numbers, spaces, dashes and underscores.'; hint.style.color='var(--red)'; return; }
+  if(myProfile && val.toLowerCase() === String(myProfile.display_name||'').toLowerCase()){
+    hint.textContent = 'This is your current name.'; hint.style.color='var(--text-dim)'; return;
+  }
+  hint.textContent='Checking…'; hint.style.color='var(--text-dim)';
+  acctNameTimer = setTimeout(async () => {
+    const { data, error } = await db.rpc('username_available', { p_name: val });
+    if(error) return;
+    hint.textContent = data ? ('✓ ' + val + ' is available') : '✗ That name is taken';
+    hint.style.color = data ? 'var(--teal)' : 'var(--red)';
+  }, 400);
+}
 async function saveName(){
   const { data, error } = await db.rpc('set_display_name', { p_name: document.getElementById('dispName').value });
-  if(error){ toast(cleanErr(error.message)); return; }
-  if(myProfile) myProfile.display_name = data.display_name;
+  if(error){
+    const hint = document.getElementById('acctNameHint');
+    hint.textContent = cleanErr(error.message); hint.style.color = 'var(--red)';
+    toast(cleanErr(error.message));
+    return;
+  }
+  if(myProfile){ myProfile.display_name = data.display_name; myProfile.username_set = true; }
   renderAccountBar();
   const { data:lb } = await db.from('v_leaderboard').select('*').order('balance',{ascending:false}).limit(100);
   leaderboard = lb || [];
+  renderLeaderboard(); renderAccount();
+  toast('Username updated');
+}
+async function toggleVisibility(){
+  const hidden = document.getElementById('hideMe').checked;
+  const { error } = await db.rpc('set_my_visibility', { p_hidden: hidden });
+  if(error){ toast(cleanErr(error.message)); return; }
+  if(myProfile) myProfile.hidden = hidden;
+  const { data:lb } = await db.from('v_leaderboard').select('*').order('balance',{ascending:false}).limit(100);
+  leaderboard = lb || [];
   renderLeaderboard();
-  toast('Name updated');
+  toast(hidden ? 'You are hidden from the leaderboard' : 'You are visible on the leaderboard');
 }
 
 function renderHome(){
