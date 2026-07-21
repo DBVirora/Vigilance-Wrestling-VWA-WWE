@@ -174,6 +174,26 @@
   .lightbox img{ max-width:min(92vw, 800px); max-height:88vh; border-radius:10px; border:1px solid var(--gold); box-shadow:0 20px 60px rgba(0,0,0,0.6); }
   .lightbox-close{ position:absolute; top:18px; right:22px; background:var(--panel-2); border:1px solid var(--border); color:var(--text); width:38px; height:38px; border-radius:50%; font-size:15px; cursor:pointer; }
   .lightbox-close:hover{ border-color:var(--gold); color:var(--gold-bright); }
+  .live-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:#ff4d5e; margin-left:6px; vertical-align:middle; animation:livePulse 1.4s infinite; }
+  .live-tag{ font-size:12px; color:#ff4d5e; font-family:'JetBrains Mono'; margin-left:10px; animation:livePulse 1.4s infinite; }
+  @keyframes livePulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  .live-banner{ display:flex; align-items:center; gap:14px; background:linear-gradient(90deg, rgba(255,77,94,0.14), rgba(155,109,255,0.10)); border:1px solid rgba(255,77,94,0.55); border-radius:12px; padding:14px 18px; margin-bottom:22px; cursor:pointer; transition:border-color .15s, transform .15s; }
+  .live-banner:hover{ border-color:#ff4d5e; transform:translateY(-1px); }
+  .live-banner strong{ color:#ff6b78; font-family:'Oswald'; letter-spacing:0.06em; font-size:15px; }
+  .lb-sub{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .lb-go{ margin-left:auto; color:var(--gold-bright); font-family:'Oswald'; font-size:13px; }
+  .live-pulse{ width:12px; height:12px; border-radius:50%; background:#ff4d5e; box-shadow:0 0 0 0 rgba(255,77,94,0.6); animation:ripple 1.6s infinite; flex-shrink:0; }
+  @keyframes ripple{ 0%{ box-shadow:0 0 0 0 rgba(255,77,94,0.55);} 100%{ box-shadow:0 0 0 14px rgba(255,77,94,0);} }
+  .platform-tabs{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .platform-tabs button{ background:var(--panel); border:1px solid var(--border); color:var(--text-dim); padding:8px 18px; border-radius:8px; font-family:'Oswald'; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; }
+  .platform-tabs button.active{ border-color:var(--gold); color:var(--gold-bright); background:rgba(155,109,255,0.08); }
+  .stream-wrap{ display:grid; grid-template-columns:1fr 340px; gap:12px; }
+  @media(max-width:900px){ .stream-wrap{ grid-template-columns:1fr; } }
+  .stream-player{ position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+  .stream-player iframe, .stream-player > div{ position:absolute; inset:0; width:100%; height:100%; }
+  .stream-chat{ height:100%; min-height:420px; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+  .stream-chat iframe{ width:100%; height:100%; }
+  .watch-note{ font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -189,6 +209,7 @@
 <nav class="tabs">
   <button data-page="home" class="active" onclick="go('home')">Home</button>
   <button data-page="upcoming" onclick="go('upcoming')">Upcoming</button>
+  <button data-page="watch" onclick="go('watch')" id="watchNavBtn">Watch<span class="live-dot" id="liveDot" style="display:none;"></span></button>
   <button data-page="predictions" onclick="go('predictions')">Predictions</button>
   <button data-page="leaderboard" onclick="go('leaderboard')">Leaderboard</button>
   <button data-page="roster" onclick="go('roster')">Roster</button>
@@ -199,6 +220,11 @@
 
 <main>
   <div class="page active" id="page-home">
+    <div class="live-banner" id="liveBanner" style="display:none;" onclick="go('watch')">
+      <span class="live-pulse"></span>
+      <div><strong>WE'RE LIVE RIGHT NOW</strong><div class="lb-sub">Vigilance Wrestling is on the air — click to watch</div></div>
+      <span class="lb-go">Watch →</span>
+    </div>
     <h2 class="section-title">Current Champions</h2>
     <div class="champ-strip" id="homeChamps"><div class="empty">Loading…</div></div>
     <h2 class="section-title">Open Predictions</h2>
@@ -223,6 +249,12 @@
   <div class="page" id="page-upcoming">
     <h2 class="section-title">Upcoming Shows</h2>
     <div id="upcomingArea"></div>
+  </div>
+
+  <div class="page" id="page-watch">
+    <h2 class="section-title">Watch <span id="liveTag" class="live-tag" style="display:none;">● LIVE</span></h2>
+    <div class="platform-tabs" id="platformTabs"></div>
+    <div id="playerArea"></div>
   </div>
 
   <div class="page" id="page-predictions">
@@ -907,6 +939,91 @@ function closeLightbox(){
 }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeLightbox(); });
 
+/* ---------------- WATCH / LIVE STREAM ---------------- */
+let streamCfg = { twitch:'', youtube:'', kick:'' };
+let twitchEmbedPlayer = null, isLive = false, activePlatform = 'twitch';
+
+async function loadStreamCfg(){
+  try{
+    const { data } = await db.from('site_settings').select('*').eq('key','stream').maybeSingle();
+    if(data && data.value) streamCfg = Object.assign(streamCfg, data.value);
+  }catch(e){}
+  renderWatch();
+  initTwitchDetect();
+}
+function platformsAvailable(){
+  const p = [];
+  if(streamCfg.twitch) p.push(['twitch','Twitch']);
+  if(streamCfg.youtube) p.push(['youtube','YouTube']);
+  if(streamCfg.kick) p.push(['kick','Kick']);
+  return p;
+}
+function renderWatch(){
+  const tabs = document.getElementById('platformTabs');
+  const area = document.getElementById('playerArea');
+  if(!tabs || !area) return;
+  const plats = platformsAvailable();
+  if(!plats.length){
+    tabs.innerHTML = '';
+    area.innerHTML = '<div class="empty">The stream isn\'t configured yet — check back soon.</div>';
+    return;
+  }
+  if(!plats.some(p => p[0] === activePlatform)) activePlatform = plats[0][0];
+  tabs.innerHTML = plats.map(([k,label]) =>
+    `<button class="${k===activePlatform?'active':''}" onclick="switchPlatform('${k}')">${label}</button>`).join('');
+  const host = location.hostname || 'localhost';
+  if(activePlatform === 'twitch'){
+    area.innerHTML = `
+      <div class="stream-wrap">
+        <div class="stream-player"><div id="twitchMount"></div></div>
+        <div class="stream-chat"><iframe src="https://www.twitch.tv/embed/${encodeURIComponent(streamCfg.twitch)}/chat?darkpopout&parent=${host}" frameborder="0"></iframe></div>
+      </div>
+      <div class="watch-note">If the player shows offline, we're not on the air yet — the homepage lights up the moment we go live.</div>`;
+    mountTwitchPlayer();
+  } else if(activePlatform === 'youtube'){
+    area.innerHTML = `
+      <div class="stream-player"><iframe src="https://www.youtube.com/embed/live_stream?channel=${encodeURIComponent(streamCfg.youtube)}&autoplay=0" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="watch-note">This player shows our current YouTube broadcast. If it says unavailable, we're not live on YouTube right now.</div>`;
+  } else if(activePlatform === 'kick'){
+    area.innerHTML = `
+      <div class="stream-player"><iframe src="https://player.kick.com/${encodeURIComponent(streamCfg.kick)}?muted=true" frameborder="0" allowfullscreen></iframe></div>
+      <div class="watch-note">Watching on Kick. Chat lives over at kick.com/${esc(streamCfg.kick)}.</div>`;
+  }
+}
+function switchPlatform(k){ activePlatform = k; renderWatch(); }
+function mountTwitchPlayer(){
+  const mount = document.getElementById('twitchMount');
+  if(!mount || !window.Twitch || !streamCfg.twitch) return;
+  mount.innerHTML = '';
+  twitchEmbedPlayer = new Twitch.Player('twitchMount', {
+    channel: streamCfg.twitch,
+    width: '100%', height: '100%',
+    autoplay: true, muted: true,
+    parent: [location.hostname || 'localhost']
+  });
+  twitchEmbedPlayer.addEventListener(Twitch.Player.ONLINE, () => setLive(true));
+  twitchEmbedPlayer.addEventListener(Twitch.Player.OFFLINE, () => setLive(false));
+  twitchEmbedPlayer.addEventListener(Twitch.Player.PLAYING, () => setLive(true));
+}
+function initTwitchDetect(){
+  if(!streamCfg.twitch) return;
+  const sc = document.createElement('script');
+  sc.src = 'https://player.twitch.tv/js/embed/v1.js';
+  sc.onload = () => { mountTwitchPlayer(); };
+  document.head.appendChild(sc);
+}
+function setLive(live){
+  if(live === isLive) return;
+  isLive = live;
+  const dot = document.getElementById('liveDot');
+  const tag = document.getElementById('liveTag');
+  const banner = document.getElementById('liveBanner');
+  if(dot) dot.style.display = live ? 'inline-block' : 'none';
+  if(tag) tag.style.display = live ? 'inline' : 'none';
+  if(banner) banner.style.display = live ? 'flex' : 'none';
+  document.title = live ? '🔴 LIVE — Vigilance Wrestling Association' : 'Vigilance Wrestling Association';
+}
+
 function renderAll(){
   renderHome(); renderUpcoming(); renderBets(); renderLeaderboard();
   renderRosterPage(); renderChampionsPage(); renderResultsPage(); renderAccount();
@@ -920,6 +1037,7 @@ db.auth.onAuthStateChange(async (event) => {
 });
 
 (async function init(){
+  loadStreamCfg();
   await refreshUser();
   await loadAll();
   renderAll();
