@@ -231,22 +231,71 @@
   .w-thumb.sel{ border-color:var(--gold); box-shadow:0 0 0 2px rgba(155,109,255,0.35); }
   .w-thumb img{ width:100%; height:100%; object-fit:cover; object-position:top; }
   .w-thumb span{ font-family:'Oswald'; font-size:15px; color:rgba(155,109,255,0.6); }
+  .hero{ position:relative; background:linear-gradient(135deg, rgba(155,109,255,0.13), rgba(13,11,20,0) 45%), radial-gradient(circle at 85% 20%, rgba(196,168,255,0.10), transparent 55%), var(--panel); border:1px solid var(--border); border-radius:16px; margin:18px auto 26px; max-width:1200px; padding:38px 40px; overflow:hidden; }
+  .hero-inner{ position:relative; z-index:2; max-width:640px; }
+  .hero-brandline{ font-family:'Oswald'; font-size:11px; letter-spacing:0.34em; color:var(--gold-bright); text-transform:uppercase; margin-bottom:10px; }
+  .hero h1{ font-family:'Oswald'; font-size:clamp(30px, 5vw, 46px); color:var(--canvas); text-transform:none; line-height:1.05; margin-bottom:12px; }
+  .hero-blurb{ font-size:14px; color:var(--text-dim); line-height:1.7; margin-bottom:20px; }
+  .hero-ctas{ display:flex; gap:10px; flex-wrap:wrap; }
+  .hero-btn{ font-size:13px; padding:11px 22px; }
+  .hero-logo{ position:absolute; right:34px; top:50%; transform:translateY(-50%); height:64%; max-height:170px; z-index:2; filter:drop-shadow(0 8px 26px rgba(0,0,0,0.5)); }
+  .hero-watermark{ position:absolute; right:-6%; top:-22%; height:150%; opacity:0.055; z-index:1; pointer-events:none; }
+  @media(max-width:760px){ .hero{ padding:26px 22px; } .hero-logo{ display:none !important; } }
+  .backstage-head{ display:flex; align-items:center; justify-content:space-between; margin:26px 0 12px; }
+  .see-all{ background:none; border:none; color:var(--gold-bright); font-family:'Oswald'; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; }
+  .backstage-strip{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-bottom:8px; }
+  .news-tabs{ display:flex; gap:7px; flex-wrap:wrap; margin-bottom:16px; }
+  .news-tabs button{ background:var(--panel); border:1px solid var(--border); color:var(--text-dim); padding:7px 14px; border-radius:8px; font-family:'Oswald'; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; }
+  .news-tabs button.active{ border-color:var(--gold); color:var(--gold-bright); background:rgba(155,109,255,0.08); }
+  .news-card{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:12px; }
+  .news-card.compact{ margin-bottom:0; }
+  .news-card.compact .news-body, .news-card.compact .social-body{ display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+  .news-kind{ font-family:'Oswald'; font-size:9.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--gold); margin-bottom:7px; }
+  .news-title{ font-family:'Oswald'; font-size:19px; color:var(--canvas); text-transform:uppercase; line-height:1.25; margin-bottom:8px; }
+  .news-card.compact .news-title{ font-size:15px; }
+  .news-body{ font-size:13.5px; color:var(--text-dim); line-height:1.7; white-space:pre-line; }
+  .news-body.clamped{ display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
+  .read-more{ background:none; border:none; color:var(--gold-bright); font-size:12px; cursor:pointer; padding:6px 0 0; font-family:'Oswald'; letter-spacing:0.06em; text-transform:uppercase; }
+  .news-img{ width:100%; border-radius:9px; border:1px solid var(--border); margin-top:11px; cursor:zoom-in; }
+  .news-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:11px; font-size:11.5px; color:var(--text-dim); }
+  .like-btn{ background:none; border:1px solid var(--border); border-radius:16px; color:var(--text-dim); font-size:11.5px; padding:4px 12px; cursor:pointer; transition:all .15s; }
+  .like-btn:hover:not(:disabled){ border-color:#e0587e; color:#e0587e; }
+  .like-btn.liked{ border-color:rgba(224,88,126,0.6); color:#e0587e; background:rgba(224,88,126,0.08); }
+  .social-head{ display:flex; gap:10px; align-items:center; margin-bottom:9px; }
+  .social-avatar{ width:38px; height:38px; border-radius:50%; background:rgba(155,109,255,0.16); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'Oswald'; font-size:16px; color:var(--gold-bright); flex-shrink:0; }
+  .social-author{ font-size:14px; color:var(--canvas); font-weight:600; }
+  .verified{ color:var(--gold-bright); font-size:11px; }
+  .social-handle{ font-size:11.5px; color:var(--text-dim); }
+  .social-body{ font-size:14px; color:var(--canvas); line-height:1.65; white-space:pre-line; }
+  .lb-form{ display:flex; gap:3px; margin-left:auto; margin-right:10px; }
+  .form-chip{ width:16px; height:16px; border-radius:4px; font-family:'JetBrains Mono'; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .form-chip.w{ background:rgba(62,142,130,0.22); color:var(--teal); }
+  .form-chip.l{ background:rgba(224,92,92,0.18); color:#e05c5c; }
 </style>
 </head>
 <body>
 
 <div class="accountbar" id="accountBar"></div>
 
-<header class="masthead">
-  <div class="brand-mark">VWA</div>
-  <h1>Vigilance Wrestling Association</h1>
-  <div class="sub">See Everything · Fear Nothing</div>
+<header class="hero" id="heroArea">
+  <div class="hero-inner">
+    <div class="hero-brandline" id="heroBrandline">VIGILANCE WRESTLING ASSOCIATION</div>
+    <h1 id="heroHeading">Welcome to the VWA</h1>
+    <p class="hero-blurb" id="heroBlurb">Every card, every result, every championship — plus free-points betting on upcoming matches. Sign in with Discord and put your Celestium where your mouth is.</p>
+    <div class="hero-ctas">
+      <button class="btn hero-btn" onclick="go('predictions')">🎲 Watch &amp; Bet</button>
+      <button class="btn ghost hero-btn" onclick="go('roster')">Meet the Roster</button>
+    </div>
+  </div>
+  <img class="hero-logo" id="heroLogo" alt="" style="display:none;">
+  <img class="hero-watermark" id="heroWatermark" alt="" style="display:none;">
 </header>
 
 <nav class="tabs">
   <button data-page="home" class="active" onclick="go('home')">Home</button>
   <button data-page="upcoming" onclick="go('upcoming')">Upcoming</button>
   <button data-page="watch" onclick="go('watch')" id="watchNavBtn">Watch<span class="live-dot" id="liveDot" style="display:none;"></span></button>
+  <button data-page="news" onclick="go('news')">Storylines</button>
   <button data-page="predictions" onclick="go('predictions')">Predictions</button>
   <button data-page="leaderboard" onclick="go('leaderboard')">Leaderboard</button>
   <button data-page="roster" onclick="go('roster')">Roster</button>
@@ -268,6 +317,9 @@
     <div id="homeBets"></div>
     <h2 class="section-title">Rankings</h2>
     <div class="lb-grid" id="homeBoards"></div>
+    <div class="backstage-head"><h2 class="section-title" style="margin-bottom:0;">From Backstage</h2><button class="see-all" onclick="go('news')">All storylines →</button></div>
+    <div class="backstage-strip" id="homeNews"></div>
+
     <h2 class="section-title">Next Show</h2>
     <div id="homeNext"></div>
   </div>
@@ -300,6 +352,20 @@
     <h2 class="section-title">Watch <span id="liveTag" class="live-tag" style="display:none;">● LIVE</span></h2>
     <div class="platform-tabs" id="platformTabs"></div>
     <div id="playerArea"></div>
+  </div>
+
+  <div class="page" id="page-news">
+    <h2 class="section-title">Storylines</h2>
+    <div style="color:var(--text-dim); font-size:13px; margin-bottom:14px; line-height:1.6;">The ongoing story of the VWA — breaking news, social drama, interviews, and official announcements.</div>
+    <div class="news-tabs" id="newsTabs">
+      <button class="active" data-k="all" onclick="setNewsFilter('all')">All</button>
+      <button data-k="social" onclick="setNewsFilter('social')">Social</button>
+      <button data-k="article" onclick="setNewsFilter('article')">Articles</button>
+      <button data-k="interview" onclick="setNewsFilter('interview')">Interviews</button>
+      <button data-k="promo" onclick="setNewsFilter('promo')">Promos</button>
+      <button data-k="announcement" onclick="setNewsFilter('announcement')">Announcements</button>
+    </div>
+    <div id="newsFeed"></div>
   </div>
 
   <div class="page" id="page-predictions">
@@ -859,12 +925,16 @@ function startCountdownTicker(){
 
 function renderHome(){
   const champEl = document.getElementById('homeChamps');
-  champEl.innerHTML = champions.length ? champions.map(c => `
+  champEl.innerHTML = champions.length ? champions.map(c => {
+    const reign = titleHistory.find(h => h.title_id === c.title_id && !h.lost_date);
+    const since = reign && reign.won_date ? 'since ' + new Date(reign.won_date).toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'}) : '';
+    return `
     <div class="champ-card">${avatar(c.photo_url, c.wrestler_name)}
-      <div><div class="t-name">${esc(c.title_name)}</div>
+      <div><div class="t-name">🏆 ${esc(c.title_name)}</div>
       <div class="w-name">${c.wrestler_name ? esc(c.wrestler_name) : 'Vacant'}</div>
-      <div class="defs">${c.wrestler_name ? c.defenses + ' successful defense' + (c.defenses===1?'':'s') : ''}</div></div>
-    </div>`).join('') : '<div class="empty">No championships yet.</div>';
+      <div class="defs">${c.wrestler_name ? (since ? since + ' · ' : '') + c.defenses + ' defense' + (c.defenses===1?'':'s') : ''}</div></div>
+    </div>`;
+  }).join('') : '<div class="empty">No championships yet.</div>';
 
   const openList = openBetMatches();
   const shown = openList.slice(0,3);
@@ -876,6 +946,9 @@ function renderHome(){
   const row = (i,n,v) => `<div class="lb-row"><span class="lb-rank">${i+1}</span><span class="lb-name">${esc(n)}</span><span class="lb-val">${v}</span></div>`;
   const top5 = (arr, fn) => arr.slice(0,5).map((x,i)=>row(i,x.name,fn(x))).join('') || '<div style="color:var(--text-dim); font-size:12px;">No results yet.</div>';
   const byWins = active.slice().sort((a,b)=>b.wins-a.wins);
+  const formChips = id => matchHistoryFor(id).slice(0,5).reverse().map(h =>
+    `<span class="form-chip ${h.won?'w':'l'}">${h.won?'W':'L'}</span>`).join('');
+  const rowForm = (i,r) => `<div class="lb-row"><span class="lb-rank">${i+1}</span><span class="lb-name">${esc(r.name)}</span><span class="lb-form">${formChips(r.wrestler_id)}</span><span class="lb-val">${r.wins}W</span></div>`;
   const pct = x => x.wins/(x.wins+x.losses);
   const byPct = active.filter(x=>x.wins+x.losses>=3).sort((a,b)=>pct(b)-pct(a));
   const mLead = key => {
@@ -884,7 +957,7 @@ function renderHome(){
     return Object.entries(map).map(([id,w])=>({ name:nameOf(id), wins:w })).sort((a,b)=>b.wins-a.wins);
   };
   document.getElementById('homeBoards').innerHTML = `
-    <div class="lb-card"><h4>Most Wins</h4>${top5(byWins, x=>x.wins+'W')}</div>
+    <div class="lb-card"><h4>Most Wins</h4>${(byWins.slice(0,5).map((x,i)=>rowForm(i,x)).join('') || '<div style="color:var(--text-dim); font-size:12px;">No results yet.</div>')}</div>
     <div class="lb-card"><h4>Best Win % (min 3)</h4>${top5(byPct, x=>Math.round(pct(x)*100)+'%')}</div>
     <div class="lb-card"><h4>Pinfall Leaders</h4>${mLead('pin').slice(0,5).map((x,i)=>row(i,x.name,x.wins+' pins')).join('')||'<div style="color:var(--text-dim); font-size:12px;">No pins yet.</div>'}</div>
     <div class="lb-card"><h4>Submission Specialists</h4>${mLead('sub').slice(0,5).map((x,i)=>row(i,x.name,x.wins+' taps')).join('')||'<div style="color:var(--text-dim); font-size:12px;">No taps yet.</div>'}</div>`;
@@ -1156,6 +1229,94 @@ function setLive(live){
   document.title = live ? '🔴 LIVE — Vigilance Wrestling Association' : 'Vigilance Wrestling Association';
 }
 
+/* ---------------- BRANDING + STORYLINES ---------------- */
+let newsPosts = [], newsFilter = 'all';
+const KIND_LABELS = { social:'Social', article:'Article', interview:'Interview', promo:'Promo', announcement:'Announcement' };
+
+async function loadBranding(){
+  try{
+    const { data } = await db.from('site_settings').select('*').eq('key','site_branding').maybeSingle();
+    const v = (data && data.value) || {};
+    if(v.heading) document.getElementById('heroHeading').textContent = v.heading;
+    if(v.tagline) document.getElementById('heroBrandline').textContent = v.tagline.toUpperCase();
+    if(v.blurb) document.getElementById('heroBlurb').textContent = v.blurb;
+    if(v.logo_url){
+      const l = document.getElementById('heroLogo');
+      l.src = v.logo_url; l.style.display = 'block';
+      const wm = document.getElementById('heroWatermark');
+      wm.src = v.logo_url; wm.style.display = 'block';
+    }
+  }catch(e){}
+}
+async function loadNews(){
+  try{
+    const { data } = await db.from('news_posts').select('*').order('ts', { ascending:false }).limit(60);
+    newsPosts = data || [];
+  }catch(e){ newsPosts = []; }
+  renderNews(); renderHomeNews();
+}
+function setNewsFilter(k){
+  newsFilter = k;
+  document.querySelectorAll('#newsTabs button').forEach(b => b.classList.toggle('active', b.dataset.k === k));
+  renderNews();
+}
+function likedSet(){ try{ return new Set(JSON.parse(localStorage.getItem('vwa_liked')||'[]')); }catch(e){ return new Set(); } }
+async function likePost(id){
+  const set = likedSet();
+  if(set.has(id)) return;
+  set.add(id);
+  localStorage.setItem('vwa_liked', JSON.stringify([...set]));
+  const { data } = await db.rpc('news_like', { p_id: id });
+  const post = newsPosts.find(p => p.id === id);
+  if(post && typeof data === 'number') post.likes = data;
+  renderNews(); renderHomeNews();
+}
+function newsDate(ts){ return new Date(ts).toLocaleDateString(undefined,{month:'long', day:'numeric', year:'numeric'}); }
+function likeBtn(p){
+  const liked = likedSet().has(p.id);
+  return `<button class="like-btn ${liked?'liked':''}" onclick="likePost('${p.id}')" ${liked?'disabled':''}>♥ ${p.likes||0}</button>`;
+}
+function newsCardHtml(p, compact){
+  const kind = KIND_LABELS[p.kind] || p.kind;
+  if(p.kind === 'social'){
+    return `<div class="news-card social ${compact?'compact':''}">
+      <div class="news-kind">Social</div>
+      <div class="social-head">
+        <div class="social-avatar">${esc((p.author||'V')[0].toUpperCase())}</div>
+        <div><div class="social-author">${esc(p.author)} <span class="verified">✔</span></div>
+        ${p.handle?`<div class="social-handle">${esc(p.handle)}</div>`:''}</div>
+      </div>
+      <div class="social-body">${esc(p.body)}</div>
+      ${p.image_url?`<img class="news-img" src="${esc(p.image_url)}" onclick="openLightbox('${esc(p.image_url)}')">`:''}
+      <div class="news-foot"><span>${newsDate(p.ts)}</span>${likeBtn(p)}</div>
+    </div>`;
+  }
+  const bodyId = 'nb-' + p.id;
+  const long = (p.body||'').length > 260;
+  return `<div class="news-card ${compact?'compact':''}">
+    <div class="news-kind">${esc(kind)}</div>
+    ${p.title?`<div class="news-title">${esc(p.title)}</div>`:''}
+    <div class="news-body ${long&&!compact?'clamped':''}" id="${bodyId}">${esc(p.body)}</div>
+    ${long&&!compact?`<button class="read-more" onclick="document.getElementById('${bodyId}').classList.remove('clamped'); this.remove();">Read more ↓</button>`:''}
+    ${p.image_url&&!compact?`<img class="news-img" src="${esc(p.image_url)}" onclick="openLightbox('${esc(p.image_url)}')">`:''}
+    <div class="news-foot"><span>${esc(p.author)} · ${newsDate(p.ts)}</span>${likeBtn(p)}</div>
+  </div>`;
+}
+function renderNews(){
+  const el = document.getElementById('newsFeed');
+  if(!el) return;
+  const list = newsFilter === 'all' ? newsPosts : newsPosts.filter(p => p.kind === newsFilter);
+  el.innerHTML = list.length ? list.map(p => newsCardHtml(p, false)).join('')
+    : '<div class="empty">Nothing here yet — the story is just beginning.</div>';
+}
+function renderHomeNews(){
+  const el = document.getElementById('homeNews');
+  if(!el) return;
+  const latest = newsPosts.slice(0, 3);
+  el.innerHTML = latest.length ? latest.map(p => newsCardHtml(p, true)).join('')
+    : '<div class="empty" style="grid-column:1/-1;">News drops here between shows.</div>';
+}
+
 function renderAll(){
   renderHome(); renderUpcoming(); renderBets(); renderLeaderboard();
   renderRosterPage(); renderChampionsPage(); renderResultsPage(); renderAccount();
@@ -1170,6 +1331,8 @@ db.auth.onAuthStateChange(async (event) => {
 
 (async function init(){
   loadStreamCfg();
+  loadBranding();
+  loadNews();
   loadWrestlerBios().then(() => renderRosterPage());
   await refreshUser();
   await loadAll();
