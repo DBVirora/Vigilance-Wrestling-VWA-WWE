@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VWA — The Climb</title>
+<!--
+  THE CLIMB — VWA contention pyramid
+  Drop this next to index.html in your GitHub Pages repo as pyramid.html
+
+  URL options:
+    ?demo=1   force the sample roster (works with no database)
+    ?bare=1   hide all UI — pure rotating pyramid, good as an OBS source
+    ?spin=0   stop the auto-rotation
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --void:#0a0812; --panel:rgba(19,15,30,0.92); --panel-2:rgba(28,22,44,0.94);
+    --border:rgba(155,109,255,0.30); --gold:#9b6dff; --gold-bright:#c4a8ff;
+    --amber:#e0b45c; --teal:#3e8e82; --text:#efeaff; --dim:#a49bc4;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ width:100%; height:100%; overflow:hidden; background:var(--void); font-family:'Oswald',sans-serif; color:var(--text); }
+  body.bare .ui{ display:none !important; }
+  #stage{ position:fixed; inset:0; }
+  canvas{ display:block; }
+
+  .topbar{ position:fixed; top:0; left:0; right:0; padding:14px 18px; display:flex; gap:10px; align-items:center;
+    flex-wrap:wrap; background:linear-gradient(180deg, rgba(10,8,18,0.92), rgba(10,8,18,0)); z-index:10; }
+  .brand{ font-family:'Cinzel',serif; font-size:18px; color:var(--gold-bright); letter-spacing:0.08em; }
+  .brand small{ display:block; font-family:'Oswald'; font-size:9.5px; letter-spacing:0.28em; color:var(--dim); text-transform:uppercase; }
+  select, .btn{ background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:7px 12px;
+    border-radius:8px; font-family:'Oswald'; font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; outline:none; }
+  select:hover, .btn:hover{ border-color:var(--gold); color:var(--gold-bright); }
+  .btn.on{ border-color:var(--gold); color:var(--gold-bright); background:rgba(155,109,255,0.14); }
+  .spacer{ flex:1; }
+
+  .legend{ position:fixed; left:18px; bottom:18px; background:var(--panel); border:1px solid var(--border);
+    border-radius:11px; padding:12px 14px; font-size:11px; color:var(--dim); z-index:10; line-height:1.85; max-width:230px; }
+  .legend b{ color:var(--gold-bright); font-size:10px; letter-spacing:0.14em; text-transform:uppercase; display:block; margin-bottom:6px; }
+  .lg{ display:flex; align-items:center; gap:8px; }
+  .dot{ width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+
+  .panel{ position:fixed; right:18px; top:76px; width:308px; max-height:calc(100vh - 110px); overflow-y:auto;
+    background:var(--panel); border:1px solid var(--border); border-radius:13px; padding:0; z-index:11;
+    transform:translateX(360px); transition:transform .32s cubic-bezier(.2,.9,.3,1); }
+  .panel.open{ transform:translateX(0); }
+  .p-photo{ position:relative; height:190px; background:radial-gradient(circle at 50% 35%, rgba(155,109,255,0.20), transparent 68%), rgba(28,22,44,0.9);
+    border-radius:12px 12px 0 0; overflow:hidden; display:flex; align-items:flex-end; justify-content:center; }
+  .p-photo img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center bottom; padding:10px 10px 46px; }
+  .p-initials{ font-family:'Cinzel'; font-size:56px; color:rgba(196,168,255,0.45); align-self:center; }
+  .p-nameblock{ position:relative; z-index:2; width:100%; padding:10px 14px; background:linear-gradient(0deg, rgba(10,8,18,0.95), transparent); }
+  .p-rank{ font-family:'JetBrains Mono'; font-size:11px; color:var(--amber); }
+  .p-name{ font-family:'Oswald'; font-size:21px; text-transform:uppercase; line-height:1.1; }
+  .p-body{ padding:14px; }
+  .p-tags{ display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px; }
+  .tag{ font-size:9px; padding:3px 9px; border-radius:11px; letter-spacing:0.09em; text-transform:uppercase; }
+  .tag.belt{ background:rgba(224,180,92,0.18); color:var(--amber); }
+  .tag.cont{ background:rgba(155,109,255,0.18); color:var(--gold-bright); }
+  .tag.prov{ background:rgba(139,136,154,0.20); color:#8b889a; }
+  .tag.fac{ background:rgba(62,142,130,0.16); color:var(--teal); }
+  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .stat{ background:rgba(28,22,44,0.8); border:1px solid var(--border); border-radius:9px; padding:9px 11px; }
+  .stat .n{ font-family:'JetBrains Mono'; font-size:17px; color:var(--gold-bright); }
+  .stat .l{ font-size:8.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.11em; margin-top:2px; }
+  .bar{ height:7px; border-radius:4px; background:rgba(255,255,255,0.07); overflow:hidden; margin-top:6px; }
+  .bar i{ display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,#7a4fe0,var(--gold-bright)); }
+  .p-head{ font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold-bright); margin:14px 0 7px; }
+  .chips{ display:flex; gap:4px; }
+  .chip{ width:20px; height:20px; border-radius:5px; font-family:'JetBrains Mono'; font-size:10px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; }
+  .chip.w{ background:rgba(62,142,130,0.25); color:#5fc4b2; }
+  .chip.l{ background:rgba(224,92,92,0.20); color:#e88; }
+  .p-note{ font-size:11.5px; color:var(--dim); line-height:1.6; font-style:italic; }
+  .p-close{ position:absolute; top:10px; right:10px; z-index:3; width:28px; height:28px; border-radius:50%;
+    background:rgba(10,8,18,0.7); border:1px solid var(--border); color:var(--text); cursor:pointer; font-size:13px; }
+
+  .banner{ position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:12;
+    background:rgba(224,180,92,0.12); border:1px solid rgba(224,180,92,0.5); color:var(--amber);
+    padding:9px 16px; border-radius:20px; font-size:11px; letter-spacing:0.06em; }
+  .hint-drag{ position:fixed; right:18px; bottom:18px; z-index:9; font-size:10.5px; color:rgba(164,155,196,0.55); letter-spacing:0.08em; }
+  .loading{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:20;
+    background:var(--void); color:var(--gold-bright); font-family:'Cinzel'; font-size:15px; letter-spacing:0.2em; }
+  .panel::-webkit-scrollbar{ width:6px; } .panel::-webkit-scrollbar-thumb{ background:var(--border); border-radius:3px; }
+  .vignette{ position:fixed; inset:0; pointer-events:none; z-index:5;
+    background:radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 34%, rgba(6,4,12,0.42) 78%, rgba(4,3,9,0.80) 100%); }
+  .topbar{ background:linear-gradient(180deg, rgba(8,5,16,0.86), rgba(8,5,16,0)) !important; }
+  .brand{ text-shadow:0 0 22px rgba(196,168,255,0.55); }
+  .panel, .legend{ backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px);
+    box-shadow:0 18px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(196,168,255,0.06) inset; }
+  .loading{ letter-spacing:0.34em; text-shadow:0 0 26px rgba(196,168,255,0.6); }
+  .custom-card{ position:fixed; right:18px; top:76px; z-index:12; width:210px; display:none;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:13px 14px;
+    backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); }
+  .custom-card.open{ display:block; }
+  .custom-card b{ display:block; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold-bright); margin-bottom:9px; }
+  .custom-card label{ display:flex; align-items:center; justify-content:space-between; font-size:11px;
+    color:var(--dim); margin-bottom:7px; letter-spacing:0.05em; }
+  .custom-card input[type=color]{ width:42px; height:26px; border:1px solid var(--border); border-radius:6px;
+    background:transparent; cursor:pointer; padding:2px; }
+  #fTheme{ max-width:170px; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="vignette"></div>
+
+<div class="ui topbar">
+  <div class="brand">The Climb<small>Vigilance Wrestling Association</small></div>
+  <select id="fDivision" class="ui"><option value="">All divisions</option></select>
+  <select id="fFaction" class="ui"><option value="">All factions</option></select>
+  <button class="btn" id="bChamps">Champions</button>
+  <button class="btn on" id="bProv">Provisionals</button>
+  <button class="btn on" id="bCut">Cut line</button>
+  <button class="btn on" id="bSpin">Auto-rotate</button>
+  <div class="spacer"></div>
+  <select id="fTheme" title="Visual theme"></select>
+  <button class="btn" id="bCustom" title="Pick your own colours">🎨</button>
+  <button class="btn" id="bReset">Reset view</button>
+</div>
+
+<div class="ui legend">
+  <b>Reading the climb</b>
+  <div class="lg"><span class="dot" style="background:#e0b45c;"></span> Champion</div>
+  <div class="lg"><span class="dot" style="background:#c4a8ff;"></span> Above the cut</div>
+  <div class="lg"><span class="dot" style="background:#6f6a86;"></span> Still climbing</div>
+  <div class="lg"><span class="dot" style="background:#3a3550;"></span> Provisional</div>
+  <div style="margin-top:7px; border-top:1px solid var(--border); padding-top:7px;">
+    Height = rating · Size = matches proven · Warmth = win rate
+  </div>
+</div>
+
+<div class="panel" id="panel">
+  <button class="p-close" onclick="closePanel()">✕</button>
+  <div id="panelInner"></div>
+</div>
+
+<div class="ui custom-card" id="customCard">
+  <b>Custom Palette</b>
+  <label>Primary<input type="color" id="cPrimary" value="#9b6dff"></label>
+  <label>Secondary<input type="color" id="cSecondary" value="#b8459b"></label>
+  <label>Accent<input type="color" id="cAccent" value="#e0b45c"></label>
+  <label>Backdrop<input type="color" id="cVoid" value="#150d28"></label>
+  <button class="btn" id="bRandomTheme" style="width:100%; margin-top:8px;">🎲 Surprise me</button>
+</div>
+
+<div class="ui hint-drag">Drag to orbit · scroll to zoom · click a node</div>
+<div class="loading" id="loading">ASCENDING…</div>
+
+<script>
+const SUPA_URL = 'https://yrshjuzumevawnoihxee.supabase.co';
+const SUPA_KEY = 'sb_publishable_InTnMqGlp3uoEz8--XKhQA_mix-bBGs';
+const qs = new URLSearchParams(location.search);
+if(qs.get('bare') === '1') document.body.classList.add('bare');
+
+/* ---------------- demo roster (used until patch 9 is live) ---------------- */
+const DEMO = [
+  { wrestler_id:'d1', name:'Magnus Volkov',  align:'heel',    division_name:"Men's Division", division_id:'mens', wins:5, losses:1, draws:0, counted_matches:6, appearances:7, contender_points:19, awr:0.7222, raw_win_pct:0.833, form_string:'LWWWW', form:0.87, belt_count:0, belt_names:'', vr:92.4, provisional:false, faction_name:'Iron Vigil', faction_color:'#e0b45c' },
+  { wrestler_id:'d2', name:'Billy',          align:'face',    division_name:"Men's Division", division_id:'mens', wins:4, losses:2, draws:0, counted_matches:6, appearances:6, contender_points:14, awr:0.6111, raw_win_pct:0.667, form_string:'WLWWL', form:0.53, belt_count:0, belt_names:'', vr:76.1, provisional:false, faction_name:'', faction_color:'' },
+  { wrestler_id:'d3', name:'EK Prosper',     align:'tweener', division_name:"Men's Division", division_id:'mens', wins:3, losses:2, draws:1, counted_matches:6, appearances:6, contender_points:12, awr:0.5000, raw_win_pct:0.500, form_string:'WWLDW', form:0.67, belt_count:0, belt_names:'', vr:68.9, provisional:false, faction_name:'Iron Vigil', faction_color:'#e0b45c' },
+  { wrestler_id:'d4', name:'Big Scorch',     align:'heel',    division_name:"Men's Division", division_id:'mens', wins:3, losses:3, draws:0, counted_matches:6, appearances:8, contender_points:11, awr:0.5000, raw_win_pct:0.500, form_string:'LLWWL', form:0.40, belt_count:0, belt_names:'', vr:63.2, provisional:false, faction_name:'', faction_color:'' },
+  { wrestler_id:'d5', name:'Sable Wren',     align:'face',    division_name:"Women's Division", division_id:'womens', wins:4, losses:1, draws:0, counted_matches:5, appearances:6, contender_points:13, awr:0.6875, raw_win_pct:0.800, form_string:'WLWWW', form:0.80, belt_count:0, belt_names:'', vr:74.8, provisional:false, faction_name:'The Hollow', faction_color:'#9b6dff' },
+  { wrestler_id:'d6', name:'Nyx Calloway',   align:'heel',    division_name:"Women's Division", division_id:'womens', wins:3, losses:2, draws:0, counted_matches:5, appearances:5, contender_points:10, awr:0.5625, raw_win_pct:0.600, form_string:'LWWLW', form:0.60, belt_count:0, belt_names:'', vr:61.5, provisional:false, faction_name:'The Hollow', faction_color:'#9b6dff' },
+  { wrestler_id:'d7', name:'Dane Ashcroft',  align:'face',    division_name:"Men's Division", division_id:'mens', wins:2, losses:2, draws:0, counted_matches:4, appearances:5, contender_points:8,  awr:0.5000, raw_win_pct:0.500, form_string:'WLLW', form:0.57, belt_count:0, belt_names:'', vr:52.7, provisional:false, faction_name:'', faction_color:'' },
+  { wrestler_id:'d8', name:'Rook Vantasse',  align:'heel',    division_name:"Men's Division", division_id:'mens', wins:2, losses:3, draws:0, counted_matches:5, appearances:6, contender_points:7,  awr:0.4375, raw_win_pct:0.400, form_string:'LWLLW', form:0.47, belt_count:0, belt_names:'', vr:47.3, provisional:false, faction_name:'Iron Vigil', faction_color:'#e0b45c' },
+  { wrestler_id:'d9', name:'Iris Vale',      align:'face',    division_name:"Women's Division", division_id:'womens', wins:2, losses:3, draws:0, counted_matches:5, appearances:5, contender_points:6, awr:0.4375, raw_win_pct:0.400, form_string:'LLWWL', form:0.40, belt_count:0, belt_names:'', vr:43.8, provisional:false, faction_name:'', faction_color:'' },
+  { wrestler_id:'d10',name:'Cass Rhodes',    align:'tweener', division_name:"Men's Division", division_id:'mens', wins:1, losses:3, draws:0, counted_matches:4, appearances:5, contender_points:4, awr:0.3571, raw_win_pct:0.250, form_string:'LLWL', form:0.30, belt_count:0, belt_names:'', vr:35.1, provisional:false, faction_name:'', faction_color:'' },
+  { wrestler_id:'d11',name:'Juno Fray',      align:'face',    division_name:"Women's Division", division_id:'womens', wins:1, losses:0, draws:0, counted_matches:1, appearances:2, contender_points:3, awr:0.6250, raw_win_pct:1.000, form_string:'W', form:1.00, belt_count:0, belt_names:'', vr:44.2, provisional:true, faction_name:'', faction_color:'' },
+  { wrestler_id:'d12',name:'Otto Brand',     align:'heel',    division_name:"Men's Division", division_id:'mens', wins:0, losses:0, draws:0, counted_matches:0, appearances:1, contender_points:0, awr:0.5000, raw_win_pct:0, form_string:'', form:0.5, belt_count:0, belt_names:'', vr:22.5, provisional:true, faction_name:'', faction_color:'' }
+];
+
+let ALL = [], CUT = 8, isDemo = false;
+let scene, camera, renderer, raycaster, nodeGroup, cutMesh, cutRing, pyramidGroup;
+let nodes = [], selected = null;
+let spin = qs.get('spin') !== '0', showProv = true, showCut = true, champsOnly = false;
+let filterDiv = '', filterFac = '';
+
+const R_BASE = 11, H_PYR = 15;
+const view = { theta: 0.7, phi: 1.15, radius: 34, target: new THREE.Vector3(0, H_PYR*0.42, 0) };
+
+/* ---------------- data ---------------- */
+async function loadData(){
+  if(qs.get('demo') === '1'){ ALL = DEMO.slice(); isDemo = true; return; }
+  try{
+    const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const { data, error } = await db.from('v_rankings').select('*').order('overall_rank');
+    if(error || !data || !data.length) throw new Error('no rankings');
+    ALL = data;
+    if(data[0] && data[0].cut_size) CUT = data[0].cut_size;
+    isDemo = false;
+  }catch(e){
+    ALL = DEMO.slice();
+    isDemo = true;
+  }
+}
+function visible(){
+  let list = ALL.slice();
+  if(filterDiv === '__none') list = list.filter(r => !r.division_id);
+  else if(filterDiv) list = list.filter(r => r.division_id === filterDiv);
+  if(filterFac) list = list.filter(r => (r.faction_name||'') === filterFac);
+  if(champsOnly) list = list.filter(r => (r.belt_count||0) > 0);
+  if(!showProv) list = list.filter(r => !r.provisional);
+  return list.sort((a,b) => (b.vr||0) - (a.vr||0));
+}
+
+/* ---------------- node textures ---------------- */
+const texCache = {};
+function heatColor(awr){
+  const t = Math.max(0, Math.min(1, ((awr || 0.5) - 0.3) / 0.5));
+  const c1 = TH.heatLow, c2 = TH.heatMid, c3 = TH.heatHigh;
+  const lerp = (a,b,k) => ({ r:a.r+(b.r-a.r)*k, g:a.g+(b.g-a.g)*k, b:a.b+(b.b-a.b)*k });
+  const o = t < 0.5 ? lerp(c1, c2, t*2) : lerp(c2, c3, (t-0.5)*2);
+  return 'rgb(' + Math.round(o.r) + ',' + Math.round(o.g) + ',' + Math.round(o.b) + ')';
+}
+function nodeTexture(r, rank, above){
+  const key = [themeKey, r.wrestler_id, rank, above, r.vr].join('|');
+  if(texCache[key]) return texCache[key];
+  const S = 256, HGT = 330;
+  const cv = document.createElement('canvas');
+  cv.width = S; cv.height = HGT;
+  const c = cv.getContext('2d');
+  const cx = S/2, cy = 108, rad = 84;
+  const isChamp = (r.belt_count||0) > 0;
+  const ringCol = isChamp ? TH.ringChamp : (r.provisional ? TH.ringProv : (above ? TH.ringTop : TH.ringMid));
+  const fill = heatColor(r.awr);
+
+  c.save();
+  c.beginPath(); c.arc(cx, cy, rad, 0, 7); c.closePath();
+  c.fillStyle = thRgba(thDark(TH.void, 0.10), 0.95); c.fill();
+  c.clip();
+  const img = r._img;
+  if(img){
+    const side = Math.min(img.width, img.height);
+    c.drawImage(img, (img.width-side)/2, Math.min(img.height-side, img.height*0.02), side, side, cx-rad, cy-rad, rad*2, rad*2);
+  } else {
+    c.fillStyle = fill; c.globalAlpha = 0.28; c.fillRect(cx-rad, cy-rad, rad*2, rad*2); c.globalAlpha = 1;
+    const init = (r.name||'?').split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase();
+    c.fillStyle = fill; c.font = '700 62px Oswald, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(init, cx, cy);
+  }
+  c.restore();
+
+  c.beginPath(); c.arc(cx, cy, rad, 0, 7);
+  c.lineWidth = isChamp ? 9 : 6; c.strokeStyle = ringCol; c.stroke();
+  if(!r.provisional){
+    c.beginPath(); c.arc(cx, cy, rad + 9, 0, 7);
+    c.lineWidth = 2; c.strokeStyle = thRgba(thLight(TH.p, 0.35), 0.28); c.stroke();
+  }
+
+  c.beginPath(); c.arc(cx - rad*0.72, cy - rad*0.72, 26, 0, 7);
+  c.fillStyle = thMix(TH.void, TH.deep, 0.5); c.fill();
+  c.lineWidth = 3; c.strokeStyle = ringCol; c.stroke();
+  c.fillStyle = ringCol; c.font = '700 26px "JetBrains Mono", monospace';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(String(rank), cx - rad*0.72, cy - rad*0.72 + 1);
+
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  c.fillStyle = r.provisional ? TH.ui['--dim'] : TH.ui['--text'];
+  c.font = '600 30px Oswald, sans-serif';
+  let nm = (r.name || '').toUpperCase();
+  while(c.measureText(nm).width > S - 12 && nm.length > 3) nm = nm.slice(0, -1);
+  c.fillText(nm, cx, 214);
+  c.fillStyle = TH.ui['--gold-bright']; c.font = '700 24px "JetBrains Mono", monospace';
+  c.fillText(String(Math.round(r.vr || 0)), cx, 252);
+  c.fillStyle = TH.ui['--dim']; c.font = '500 19px Oswald, sans-serif';
+  c.fillText((r.wins||0) + '-' + (r.losses||0) + (r.draws ? '-' + r.draws : ''), cx, 284);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.needsUpdate = true;
+  texCache[key] = tex;
+  return tex;
+}
+function loadPhoto(r){
+  return new Promise(res => {
+    if(!r.photo_url) return res(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => { r._img = im; res(im); };
+    im.onerror = () => res(null);
+    im.src = r.photo_url;
+  });
+}
+
+/* ---------------- scene ---------------- */
+/* ---------------- themes ---------------- */
+function thHx(h){ h = String(h).replace('#',''); if(h.length===3) h = h.split('').map(c=>c+c).join('');
+  const n = parseInt(h,16); return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 }; }
+function thHex(r,g,b){ return '#' + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
+function thMix(a,b,t){ const x=thHx(a), y=thHx(b); return thHex(x.r+(y.r-x.r)*t, x.g+(y.g-x.g)*t, x.b+(y.b-x.b)*t); }
+function thLight(c,t){ return thMix(c,'#ffffff',t); }
+function thDark(c,t){ return thMix(c,'#000000',t); }
+function thInt(c){ return parseInt(String(c).replace('#',''),16); }
+function thTri(c){ const x=thHx(c); return [x.r/255, x.g/255, x.b/255]; }
+function thRgba(c,a){ const x=thHx(c); return `rgba(${x.r},${x.g},${x.b},${a})`; }
+
+/* Each theme is five colours plus optional behaviour.
+   Everything else — sky, stars, auras, beam, UI — is derived from these. */
+const THEME_DEFS = {
+  cosmos:      { label:'Royal Cosmos',   void:'#06040c', deep:'#150d28', p:'#9b6dff', s:'#b8459b', a:'#e0b45c' },
+  inferno:     { label:'Inferno',        void:'#0a0301', deep:'#2a0e06', p:'#ff6b2b', s:'#c41f0c', a:'#ffd27a', rise:1.7, fogD:0.0095 },
+  abyss:       { label:'Abyss',          void:'#01080f', deep:'#06212e', p:'#2ec7c7', s:'#1b5fa8', a:'#9dfbe0', rise:0.5,  fogD:0.014 },
+  emerald:     { label:'Emerald Vault',  void:'#02100a', deep:'#062b1c', p:'#3fd98a', s:'#12693f', a:'#e8d98a' },
+  bloodmoon:   { label:'Bloodmoon',      void:'#0c0304', deep:'#2a070e', p:'#e23b4e', s:'#8c1220', a:'#ffdede' },
+  arctic:      { label:'Arctic',         void:'#050d14', deep:'#0e2b3d', p:'#7fd6ff', s:'#3f7fae', a:'#ffffff', rise:-0.7 },
+  neongrid:    { label:'Neon Grid',      void:'#05010f', deep:'#170533', p:'#ff2fd0', s:'#23e0ff', a:'#fff07a' },
+  dynasty:     { label:'Golden Dynasty', void:'#060503', deep:'#1c1508', p:'#e8c25e', s:'#8a6a1e', a:'#fff4c9' },
+  toxic:       { label:'Toxic',          void:'#060a02', deep:'#16260a', p:'#9ee62a', s:'#4a7a0e', a:'#f0ff8a', rise:0.85 },
+  sakura:      { label:'Sakura',         void:'#100610', deep:'#2c0f24', p:'#ff9ec7', s:'#a8426f', a:'#fff0e0', rise:-0.4 },
+  voidblack:   { label:'Void Black',     void:'#000000', deep:'#0d0d0f', p:'#d8d8e0', s:'#4a4a55', a:'#ffffff' },
+  solarflare:  { label:'Solar Flare',    void:'#0f0600', deep:'#331500', p:'#ff9d1c', s:'#d64500', a:'#fff3b0', rise:1.4 },
+  amethyst:    { label:'Amethyst Deep',  void:'#08041a', deep:'#1c0a3d', p:'#a55cff', s:'#5d1fb8', a:'#e0c8ff' },
+  copper:      { label:'Copper Forge',   void:'#0a0503', deep:'#24120a', p:'#d98d5c', s:'#8a4a24', a:'#ffdcc2' },
+  midnight:    { label:'Midnight Steel', void:'#030710', deep:'#0d1830', p:'#5f8ccc', s:'#2a4a80', a:'#dce8ff' },
+  venom:       { label:'Venom',          void:'#060310', deep:'#180a2a', p:'#7ee62a', s:'#5a1f9e', a:'#c8ff8a' },
+  vapor:       { label:'Vaporwave',      void:'#100526', deep:'#2a0f4a', p:'#ff6bcb', s:'#49c9ff', a:'#ffe08a' },
+  emberash:    { label:'Ember & Ash',    void:'#08080a', deep:'#1e1c1c', p:'#ff7a2b', s:'#4a4440', a:'#ffd4a0', rise:1.2 },
+  storm:       { label:'Oceanic Storm',  void:'#04070c', deep:'#12202e', p:'#7f9cb8', s:'#2a4056', a:'#ffffff', fogD:0.012 },
+  sunset:      { label:'Sunset Strip',   void:'#0f0512', deep:'#331036', p:'#ff7a5c', s:'#a8459e', a:'#ffd48a' },
+  radioactive: { label:'Radioactive',    void:'#040802', deep:'#12240c', p:'#c8ff3a', s:'#3a8a0e', a:'#ffffaa', rise:0.9 },
+  obsidian:    { label:'Obsidian & Gold',void:'#000000', deep:'#0e0c08', p:'#c8a44a', s:'#4a3c18', a:'#ffe9a8' },
+  frostbite:   { label:'Frostbite',      void:'#060e16', deep:'#14344a', p:'#b8ecff', s:'#4a8ab0', a:'#ffffff', rise:-0.55 },
+  nebularose:  { label:'Nebula Rose',    void:'#0c0410', deep:'#2e0a2c', p:'#ff5c9e', s:'#8a2fb8', a:'#ffd0e8' }
+};
+let TH = null, themeKey = 'cosmos';
+
+function buildTheme(d){
+  const p = d.p, sc = d.s, a = d.a, vd = d.void, dp = d.deep;
+  return {
+    key: d.key || '', label: d.label,
+    void: vd, deep: dp, p, s: sc, a,
+    skyStops: [ thMix(dp, p, 0.22), dp, thMix(vd, dp, 0.45), vd ],
+    clouds: [ [p, 0.28], [sc, 0.24], [thMix(p, sc, 0.5), 0.20], [thLight(sc, 0.15), 0.16] ],
+    starTints: [ [1,1,1], thTri(thLight(p, 0.35)), thTri(thLight(a, 0.15)) ],
+    fog: thInt(vd), fogD: d.fogD != null ? d.fogD : 0.0085,
+    edge: thInt(thLight(p, 0.30)), face: thInt(p),
+    floorStops: [ thRgba(thLight(p,0.30), 0.42), thRgba(p, 0.20), thRgba(thDark(sc,0.25), 0.07) ],
+    helixLow: thTri(p), helixHigh: thTri(a),
+    beamStops: [ thRgba(thLight(a,0.25), 0.85), thRgba(a, 0.42), thRgba(p, 0.16) ],
+    apex: thInt(a),
+    auraChamp: thInt(a), auraTop: thInt(thLight(p,0.25)),
+    auraMid: thInt(thDark(thMix(p, sc, 0.5), 0.45)), auraProv: thInt(thDark(sc, 0.60)),
+    cut: thInt(a), cutCss: a,
+    motes: thInt(thLight(p, 0.20)),
+    ringChamp: a, ringTop: thLight(p, 0.30), ringMid: thDark(thMix(p,sc,0.5), 0.30), ringProv: thDark(sc, 0.45),
+    heatLow: thHx(thDark(sc, 0.15)), heatMid: thHx(p), heatHigh: thHx(a),
+    rise: d.rise != null ? d.rise : 1.0,
+    ui: {
+      '--void': vd, '--gold': p, '--gold-bright': thLight(p, 0.35), '--amber': a,
+      '--border': thRgba(p, 0.32),
+      '--panel': thRgba(thMix(dp, vd, 0.35), 0.92),
+      '--panel-2': thRgba(thMix(dp, vd, 0.15), 0.94),
+      '--text': thLight(thMix(p, '#ffffff', 0.55), 0.35),
+      '--dim': thMix(p, '#8f8aa0', 0.55)
+    }
+  };
+}
+function themeFromCustom(){
+  return buildTheme({ label:'Custom', key:'custom',
+    void: thDark(document.getElementById('cVoid').value, 0.45),
+    deep: document.getElementById('cVoid').value,
+    p: document.getElementById('cPrimary').value,
+    s: document.getElementById('cSecondary').value,
+    a: document.getElementById('cAccent').value });
+}
+
+/* ---------------- stardust ---------------- */
+const COSMIC = { sky:null, stars:[], dust:null, helix:null, beam:null, comets:[], floor:null, auras:[], thread:null };
+
+function dotTexture(core, edge){
+  const S = 64, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const c = cv.getContext('2d');
+  const g = c.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+  g.addColorStop(0, core);
+  g.addColorStop(0.30, edge);
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, S, S);
+  return new THREE.CanvasTexture(cv);
+}
+const TEX = {};
+function tex(){
+  if(!TEX.star) TEX.star = dotTexture('rgba(255,255,255,1)', 'rgba(210,190,255,0.55)');
+  if(!TEX.mote) TEX.mote = dotTexture('rgba(226,205,255,0.95)', 'rgba(155,109,255,0.35)');
+  if(!TEX.glow) TEX.glow = dotTexture('rgba(255,255,255,0.85)', 'rgba(155,109,255,0.30)');
+  return TEX;
+}
+function skyTexture(){
+  const W = 2048, H = 1024;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, 0, 0, H);
+  TH.skyStops.forEach((col, i) => g.addColorStop(i / (TH.skyStops.length - 1), col));
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+
+  const spots = [[330,250,420],[1180,190,380],[800,360,460],[1650,300,400],[120,520,380],[1450,620,340]];
+  const clouds = spots.map(([x, y, r], i) => {
+    const [col, a] = TH.clouds[i % TH.clouds.length];
+    return [x, y, col, r, a * (i % 2 ? 0.8 : 1)];
+  });
+  clouds.forEach(([x, y, col, r, a]) => {
+    const rg = c.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, col); rg.addColorStop(1, col + '00');
+    c.globalAlpha = a; c.fillStyle = rg;
+    c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  });
+  c.globalAlpha = 1;
+
+  let seed = 8231;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for(let i = 0; i < 1400; i++){
+    const x = rnd() * W, y = rnd() * H, r = rnd() * 1.5 + 0.3;
+    const t = rnd();
+    c.fillStyle = t > 0.90 ? thRgba(TH.a, 0.85)
+               : t > 0.74 ? thRgba(thLight(TH.p, 0.35), 0.80)
+               : 'rgba(255,255,255,' + (0.30 + rnd() * 0.55) + ')';
+    c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  }
+  return new THREE.CanvasTexture(cv);
+}
+function buildCosmos(){
+  tex();
+  if(qs.get('sky') !== '0'){
+    COSMIC.sky = new THREE.Mesh(
+      new THREE.SphereGeometry(170, 40, 28),
+      new THREE.MeshBasicMaterial({ map: skyTexture(), side: THREE.BackSide, depthWrite: false, fog: false })
+    );
+    scene.add(COSMIC.sky);
+  }
+
+  // three parallax star shells
+  const shells = [
+    { n: 1300, r0: 60,  r1: 95,  size: 1.5, op: 0.85, spin:  0.00022 },
+    { n: 900,  r0: 95,  r1: 130, size: 2.4, op: 0.70, spin: -0.00014 },
+    { n: 420,  r0: 130, r1: 158, size: 3.6, op: 0.55, spin:  0.00008 }
+  ];
+  shells.forEach(sh => {
+    const pos = new Float32Array(sh.n * 3), col = new Float32Array(sh.n * 3);
+    const tint = new Uint8Array(sh.n);
+    for(let i = 0; i < sh.n; i++){
+      const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
+      const rr = sh.r0 + Math.random() * (sh.r1 - sh.r0);
+      const sp = Math.sqrt(1 - u * u);
+      pos[i*3]   = rr * sp * Math.cos(th);
+      pos[i*3+1] = rr * u * 0.75 + 14;
+      pos[i*3+2] = rr * sp * Math.sin(th);
+      const t = Math.random();
+      const ti = t > 0.90 ? 2 : t > 0.70 ? 1 : 0;
+      tint[i] = ti;
+      const c = TH.starTints[ti];
+      col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2];
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+      map: TEX.star, size: sh.size, sizeAttenuation: true, transparent: true,
+      opacity: sh.op, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexColors: true, fog: false
+    }));
+    pts.userData.spin = sh.spin;
+    pts.userData.tint = tint;
+    COSMIC.stars.push(pts);
+    scene.add(pts);
+  });
+
+  // drifting motes close to the structure
+  const N = 700;
+  const dp = new Float32Array(N * 3);
+  const seedArr = new Float32Array(N * 3);
+  for(let i = 0; i < N; i++){
+    const a = Math.random() * Math.PI * 2, rr = 4 + Math.random() * 26;
+    dp[i*3] = Math.cos(a) * rr; dp[i*3+1] = Math.random() * 34 - 3; dp[i*3+2] = Math.sin(a) * rr;
+    seedArr[i*3] = Math.random() * 6.28; seedArr[i*3+1] = 0.25 + Math.random() * 0.7; seedArr[i*3+2] = rr;
+  }
+  const dgeo = new THREE.BufferGeometry();
+  dgeo.setAttribute('position', new THREE.BufferAttribute(dp, 3));
+  COSMIC.dust = new THREE.Points(dgeo, new THREE.PointsMaterial({
+    map: TEX.mote, size: 0.62, sizeAttenuation: true, transparent: true,
+    opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, color: TH.motes, fog: false
+  }));
+  COSMIC.dust.userData.seed = seedArr;
+  scene.add(COSMIC.dust);
+
+  buildHelixDust();
+  buildApexBeam();
+  buildComets();
+}
+/* the signature element — a river of stardust winding up the climb */
+function buildHelixDust(){
+  const N = 2200, TURNS = 3.6;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  const par = new Float32Array(N * 3);   // t, angleJitter, radiusJitter
+  for(let i = 0; i < N; i++){
+    par[i*3]   = Math.random();
+    par[i*3+1] = (Math.random() - 0.5) * 0.55;
+    par[i*3+2] = (Math.random() - 0.5) * 1.5;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  COSMIC.helix = new THREE.Points(geo, new THREE.PointsMaterial({
+    map: TEX.mote, size: 0.5, sizeAttenuation: true, transparent: true,
+    opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, vertexColors: true, fog: false
+  }));
+  COSMIC.helix.userData = { par, N, TURNS };
+  scene.add(COSMIC.helix);
+  updateHelixDust(0);
+}
+function updateHelixDust(time){
+  const h = COSMIC.helix; if(!h) return;
+  const { par, N, TURNS } = h.userData;
+  const pos = h.geometry.attributes.position.array;
+  const col = h.geometry.attributes.color.array;
+  for(let i = 0; i < N; i++){
+    let t = par[i*3] + time * 0.035;
+    t -= Math.floor(t);
+    const hN = 0.04 + t * 0.92;
+    const y = hN * H_PYR;
+    const rad = Math.max(0.5, R_BASE * (1 - hN) * 0.80) + par[i*3+2] * (1 - hN);
+    const th = t * Math.PI * 2 * TURNS + par[i*3+1];
+    pos[i*3]   = Math.cos(th) * rad;
+    pos[i*3+1] = y;
+    pos[i*3+2] = Math.sin(th) * rad;
+    // theme primary at the base burning to the accent at the peak
+    const k = Math.pow(t, 1.4);
+    const lo = TH.helixLow, hi = TH.helixHigh;
+    col[i*3]   = lo[0] + (hi[0] - lo[0]) * k;
+    col[i*3+1] = lo[1] + (hi[1] - lo[1]) * k;
+    col[i*3+2] = lo[2] + (hi[2] - lo[2]) * k;
+  }
+  h.geometry.attributes.position.needsUpdate = true;
+  h.geometry.attributes.color.needsUpdate = true;
+}
+function beamTexture(){
+  const cv = document.createElement('canvas'); cv.width = 8; cv.height = 256;
+  const c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, 256, 0, 0);
+  g.addColorStop(0.00, TH.beamStops[0]);
+  g.addColorStop(0.22, TH.beamStops[1]);
+  g.addColorStop(0.60, TH.beamStops[2]);
+  g.addColorStop(1.00, thRgba(TH.p, 0));
+  c.fillStyle = g; c.fillRect(0, 0, 8, 256);
+  return new THREE.CanvasTexture(cv);
+}
+function buildApexBeam(){
+  const H = 40;
+  const geo = new THREE.CylinderGeometry(3.4, 0.35, H, 24, 1, true);
+  COSMIC.beam = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    map: beamTexture(), transparent: true, opacity: 0.30, side: THREE.DoubleSide,
+    depthWrite: false, blending: THREE.AdditiveBlending, fog: false
+  }));
+  COSMIC.beam.position.y = H_PYR + H / 2;
+  scene.add(COSMIC.beam);
+
+  // sparks orbiting the vacant throne
+  const N = 180;
+  const pos = new Float32Array(N * 3), par = new Float32Array(N * 3);
+  for(let i = 0; i < N; i++){
+    par[i*3] = Math.random() * 6.28;
+    par[i*3+1] = 0.7 + Math.random() * 2.6;
+    par[i*3+2] = Math.random() * 3.4 - 1.0;
+  }
+  const geo2 = new THREE.BufferGeometry();
+  geo2.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const sparks = new THREE.Points(geo2, new THREE.PointsMaterial({
+    map: TEX.mote, size: 0.42, sizeAttenuation: true, transparent: true,
+    opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, color: TH.apex, fog: false
+  }));
+  sparks.userData = { par, N };
+  COSMIC.sparks = sparks;
+  scene.add(sparks);
+}
+function buildComets(){
+  for(let i = 0; i < 3; i++){
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: TEX.glow, transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending, color: 0xffffff, fog: false
+    }));
+    sp.scale.set(2.4, 2.4, 1);
+    sp.userData = { next: Math.random() * 14, life: -1, from: new THREE.Vector3(), to: new THREE.Vector3() };
+    COSMIC.comets.push(sp);
+    scene.add(sp);
+  }
+}
+function stepComets(t, dt){
+  COSMIC.comets.forEach(c => {
+    const u = c.userData;
+    if(u.life < 0){
+      u.next -= dt;
+      if(u.next <= 0){
+        const a = Math.random() * Math.PI * 2, r = 70 + Math.random() * 50;
+        u.from.set(Math.cos(a) * r, 24 + Math.random() * 40, Math.sin(a) * r);
+        const b = a + (Math.random() > 0.5 ? 1 : -1) * (0.7 + Math.random() * 0.9);
+        u.to.set(Math.cos(b) * r, u.from.y - 18 - Math.random() * 22, Math.sin(b) * r);
+        u.life = 0;
+      }
+    } else {
+      u.life += dt / 1.5;
+      if(u.life >= 1){ u.life = -1; u.next = 6 + Math.random() * 16; c.material.opacity = 0; return; }
+      c.position.lerpVectors(u.from, u.to, u.life);
+      c.material.opacity = Math.sin(u.life * Math.PI) * 0.85;
+      const s = 2.0 + Math.sin(u.life * Math.PI) * 2.6;
+      c.scale.set(s, s, 1);
+    }
+  });
+}
+
+function buildPyramid(){
+  pyramidGroup = new THREE.Group();
+  const apex = new THREE.Vector3(0, H_PYR, 0);
+  const corners = [];
+  for(let i=0;i<4;i++){
+    const a = (i/4)*Math.PI*2 + Math.PI/4;
+    corners.push(new THREE.Vector3(Math.cos(a)*R_BASE, 0, Math.sin(a)*R_BASE));
+  }
+  const edgeMat = new THREE.LineBasicMaterial({ color:TH.edge, transparent:true, opacity:0.75, blending:THREE.AdditiveBlending });
+  const pts = [];
+  corners.forEach((c, i) => {
+    pts.push(c.clone(), apex.clone());
+    pts.push(c.clone(), corners[(i+1)%4].clone());
+  });
+  pyramidGroup.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), edgeMat));
+
+  const faceMat = new THREE.MeshBasicMaterial({ color:TH.face, transparent:true, opacity:0.075, side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending });
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(R_BASE, H_PYR, 4, 1, true), faceMat);
+  cone.position.y = H_PYR/2; cone.rotation.y = Math.PI/4;
+  pyramidGroup.add(cone);
+
+  const tierMat = new THREE.LineBasicMaterial({ color:TH.face, transparent:true, opacity:0.16 });
+  for(let t=1;t<=5;t++){
+    const h = (t/6)*H_PYR, rr = R_BASE*(1 - h/H_PYR);
+    const ring = [];
+    for(let i=0;i<=4;i++){
+      const a = (i/4)*Math.PI*2 + Math.PI/4;
+      ring.push(new THREE.Vector3(Math.cos(a)*rr, h, Math.sin(a)*rr));
+    }
+    pyramidGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), tierMat));
+  }
+
+  // cosmic floor — a pool of light instead of a wireframe grid
+  const fcv = document.createElement('canvas'); fcv.width = fcv.height = 512;
+  const fc = fcv.getContext('2d');
+  const fg = fc.createRadialGradient(256, 256, 0, 256, 256, 256);
+  fg.addColorStop(0.00, TH.floorStops[0]);
+  fg.addColorStop(0.22, TH.floorStops[1]);
+  fg.addColorStop(0.60, TH.floorStops[2]);
+  fg.addColorStop(1.00, 'rgba(0,0,0,0)');
+  fc.fillStyle = fg; fc.fillRect(0, 0, 512, 512);
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(R_BASE * 2.4, 64),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(fcv), transparent: true,
+      opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false })
+  );
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -0.05;
+  pyramidGroup.add(floor);
+  COSMIC.floor = floor;
+
+  const ringMat = new THREE.LineBasicMaterial({ color:TH.face, transparent:true, opacity:0.13 });
+  for(let k = 1; k <= 4; k++){
+    const rr = R_BASE * (0.55 + k * 0.42), pts2 = [];
+    for(let i = 0; i <= 72; i++){
+      const a = (i/72) * Math.PI * 2;
+      pts2.push(new THREE.Vector3(Math.cos(a)*rr, -0.04, Math.sin(a)*rr));
+    }
+    pyramidGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), ringMat));
+  }
+
+  const spark = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 16),
+    new THREE.MeshBasicMaterial({ color:TH.apex, transparent:true, opacity:0.9 }));
+  spark.position.copy(apex);
+  spark.name = 'apex';
+  pyramidGroup.add(spark);
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16),
+    new THREE.MeshBasicMaterial({ color:TH.apex, transparent:true, opacity:0.10, depthWrite:false }));
+  halo.position.copy(apex); halo.name = 'halo';
+  pyramidGroup.add(halo);
+
+  scene.add(pyramidGroup);
+}
+function buildCutPlane(){
+  const geo = new THREE.CircleGeometry(1, 48);
+  cutMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color:TH.cut, transparent:true, opacity:0.09, side:THREE.DoubleSide, depthWrite:false }));
+  cutMesh.rotation.x = -Math.PI/2;
+  scene.add(cutMesh);
+  cutRing = new THREE.Mesh(new THREE.RingGeometry(0.98, 1, 48), new THREE.MeshBasicMaterial({
+    color:TH.cut, transparent:true, opacity:0.75, side:THREE.DoubleSide, depthWrite:false }));
+  cutRing.rotation.x = -Math.PI/2;
+  scene.add(cutRing);
+}
+function heightFor(r, i, list){
+  const vrs = list.map(x => x.vr || 0);
+  const lo = Math.min(...vrs), hi = Math.max(...vrs);
+  let h;
+  if(hi - lo < 1) h = list.length > 1 ? 1 - i/(list.length-1) : 0.5;
+  else h = ((r.vr||0) - lo) / (hi - lo);
+  return 0.10 + h * 0.78;
+}
+async function buildNodes(){
+  if(nodeGroup){ scene.remove(nodeGroup); }
+  nodeGroup = new THREE.Group();
+  nodes = []; COSMIC.thread = null;
+  const list = visible();
+  await Promise.all(list.slice(0, 40).map(loadPhoto));
+
+  list.forEach((r, i) => {
+    const hN = heightFor(r, i, list);
+    const y = hN * H_PYR;
+    const rad = Math.max(1.4, R_BASE * (1 - hN) * 0.80);
+    const theta = i * 2.399963;
+    const above = i < CUT && !r.provisional;
+    const tex = nodeTexture(r, i + 1, above);
+    const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false,
+      opacity: r.provisional ? 0.55 : 1 });
+    const sp = new THREE.Sprite(mat);
+    const proven = Math.min(1, (r.counted_matches || 0) / 6);
+    const s = 2.5 * (0.66 + 0.44 * proven);
+    sp.scale.set(s, s * (330/256), 1);
+    sp.position.set(Math.cos(theta)*rad, y, Math.sin(theta)*rad);
+    sp.renderOrder = 2;
+    sp.userData = { r, rank:i+1, above, baseY:y, phase: i * 0.9 };
+
+    const isChamp = (r.belt_count||0) > 0;
+    const auraCol = isChamp ? TH.auraChamp : (r.provisional ? TH.auraProv : (above ? TH.auraTop : TH.auraMid));
+    const aura = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: TEX.glow, color: auraCol, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, opacity: r.provisional ? 0.16 : (above ? 0.42 : 0.24), fog: false
+    }));
+    const ag = s * (isChamp ? 2.6 : above ? 2.2 : 1.8);
+    aura.scale.set(ag, ag, 1);
+    aura.position.copy(sp.position);
+    aura.renderOrder = 1;
+    sp.userData.aura = aura;
+    sp.userData.auraBase = aura.material.opacity;
+    nodeGroup.add(aura);
+
+    nodeGroup.add(sp);
+    nodes.push(sp);
+  });
+
+  // faint thread linking the ranks in order — the constellation of the climb
+  if(nodes.length > 1){
+    const tp = nodes.map(n => n.position.clone());
+    COSMIC.thread = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(tp),
+      new THREE.LineBasicMaterial({ color:TH.auraTop, transparent:true, opacity:0.18,
+        depthWrite:false, blending:THREE.AdditiveBlending })
+    );
+    nodeGroup.add(COSMIC.thread);
+  }
+
+  // cut-line height sits between the last qualifier and the first outside it
+  const elig = list.filter(x => !x.provisional);
+  if(elig.length > CUT){
+    const a = list.indexOf(elig[CUT-1]), b = list.indexOf(elig[CUT]);
+    const hy = (heightFor(elig[CUT-1], a, list) + heightFor(elig[CUT], b, list)) / 2 * H_PYR;
+    const rr = R_BASE * (1 - hy/H_PYR) * 1.02;
+    cutMesh.position.y = hy; cutMesh.scale.set(rr, rr, 1);
+    cutRing.position.y = hy; cutRing.scale.set(rr, rr, 1);
+    cutMesh.visible = cutRing.visible = showCut;
+  } else {
+    cutMesh.visible = cutRing.visible = false;
+  }
+  scene.add(nodeGroup);
+}
+
+/* ---------------- camera control ---------------- */
+function applyCamera(){
+  const p = view;
+  camera.position.set(
+    p.target.x + p.radius * Math.sin(p.phi) * Math.sin(p.theta),
+    p.target.y + p.radius * Math.cos(p.phi),
+    p.target.z + p.radius * Math.sin(p.phi) * Math.cos(p.theta)
+  );
+  camera.lookAt(p.target);
+}
+function bindControls(el){
+  let dragging = false, lx = 0, ly = 0, moved = 0;
+  const down = e => { dragging = true; moved = 0;
+    const t = e.touches ? e.touches[0] : e; lx = t.clientX; ly = t.clientY; };
+  const move = e => {
+    if(!dragging) return;
+    const t = e.touches ? e.touches[0] : e;
+    const dx = t.clientX - lx, dy = t.clientY - ly;
+    lx = t.clientX; ly = t.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    view.theta -= dx * 0.006;
+    view.phi = Math.max(0.22, Math.min(1.62, view.phi - dy * 0.005));
+    applyCamera();
+    if(e.cancelable) e.preventDefault();
+  };
+  const up = e => {
+    if(dragging && moved < 8){
+      const t = e.changedTouches ? e.changedTouches[0] : e;
+      if(t && t.clientX !== undefined) pick(t);
+    }
+    dragging = false;
+  };
+  el.addEventListener('mousedown', down);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  el.addEventListener('touchstart', down, { passive:true });
+  window.addEventListener('touchmove', move, { passive:false });
+  window.addEventListener('touchend', up);
+  el.addEventListener('wheel', e => {
+    view.radius = Math.max(14, Math.min(72, view.radius + e.deltaY * 0.03));
+    applyCamera(); e.preventDefault();
+  }, { passive:false });
+}
+function pick(e){
+  const rect = renderer.domElement.getBoundingClientRect();
+  const m = new THREE.Vector2(
+    ((e.clientX - rect.left)/rect.width)*2 - 1,
+    -((e.clientY - rect.top)/rect.height)*2 + 1
+  );
+  raycaster.setFromCamera(m, camera);
+  const hit = raycaster.intersectObjects(nodes, false)[0];
+  if(hit) openPanel(hit.object.userData);
+  else closePanel();
+}
+
+/* ---------------- panel ---------------- */
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function openPanel(d){
+  selected = d;
+  const r = d.r;
+  const initials = (r.name||'?').split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase();
+  const chips = (r.form_string || '').split('').map(c =>
+    `<span class="chip ${c==='W'?'w':'l'}">${c}</span>`).join('') || '<span style="font-size:11px;color:var(--dim);">No matches yet</span>';
+  const tags = [
+    (r.belt_count||0) > 0 ? `<span class="tag belt">🏆 ${esc(r.belt_names)}</span>` : '',
+    d.above ? '<span class="tag cont">Above the cut</span>' : '',
+    r.provisional ? '<span class="tag prov">Provisional</span>' : '',
+    r.status_label ? `<span class="tag cont">${esc(r.status_label)}</span>` : '',
+    r.faction_name ? `<span class="tag fac">${esc(r.faction_name)}</span>` : ''
+  ].filter(Boolean).join('');
+  document.getElementById('panelInner').innerHTML = `
+    <div class="p-photo">
+      ${r.photo_url ? `<img src="${esc(r.photo_url)}" alt="">` : `<div class="p-initials">${initials}</div>`}
+      <div class="p-nameblock">
+        <div class="p-rank">RANK ${d.rank}${r.division_name ? ' · ' + esc(r.division_name) : ''}</div>
+        <div class="p-name">${esc(r.name)}</div>
+      </div>
+    </div>
+    <div class="p-body">
+      ${tags ? `<div class="p-tags">${tags}</div>` : ''}
+      <div class="stat-grid">
+        <div class="stat"><div class="n">${Math.round(r.vr||0)}</div><div class="l">Vigilance rating</div>
+          <div class="bar"><i style="width:${Math.max(3, Math.min(100, r.vr||0))}%"></i></div></div>
+        <div class="stat"><div class="n">${r.contender_points||0}</div><div class="l">Contender points</div></div>
+        <div class="stat"><div class="n">${r.wins||0}-${r.losses||0}${r.draws?'-'+r.draws:''}</div><div class="l">Record</div></div>
+        <div class="stat"><div class="n">${Math.round((r.awr||0)*1000)/10}%</div><div class="l">Adjusted win rate</div></div>
+      </div>
+      <div class="p-head">Last five</div>
+      <div class="chips">${chips}</div>
+      <div class="p-head">Detail</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="n">${Math.round((r.raw_win_pct||0)*1000)/10}%</div><div class="l">Raw win rate</div></div>
+        <div class="stat"><div class="n">${r.appearances||0}</div><div class="l">Appearances</div></div>
+      </div>
+      ${r.provisional ? '<div class="p-head">Status</div><div class="p-note">Under the match minimum — visible on the climb, but not yet eligible.</div>' : ''}
+      ${r.override_note ? `<div class="p-head">Note</div><div class="p-note">${esc(r.override_note)}</div>` : ''}
+    </div>`;
+  document.getElementById('panel').classList.add('open');
+  nodes.forEach(n => n.material.opacity = n === nodes[d.rank-1] ? 1 : (n.userData.r.provisional ? 0.3 : 0.55));
+  const sel = nodes.find(n => n.userData.r.wrestler_id === r.wrestler_id);
+  if(sel) sel.material.opacity = 1;
+}
+function closePanel(){
+  selected = null;
+  document.getElementById('panel').classList.remove('open');
+  nodes.forEach(n => n.material.opacity = n.userData.r.provisional ? 0.55 : 1);
+}
+
+/* ---------------- ui ---------------- */
+function fillFilters(){
+  const divs = [...new Set(ALL.map(r => r.division_id).filter(Boolean))];
+  const dSel = document.getElementById('fDivision');
+  dSel.innerHTML = '<option value="">All divisions</option>' +
+    divs.map(id => {
+      const n = (ALL.find(r => r.division_id === id) || {}).division_name || id;
+      return `<option value="${esc(id)}">${esc(n)}</option>`;
+    }).join('') + '<option value="__none">Unassigned</option>';
+  const facs = [...new Set(ALL.map(r => r.faction_name).filter(Boolean))];
+  const fSel = document.getElementById('fFaction');
+  fSel.innerHTML = '<option value="">All factions</option>' +
+    facs.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+}
+function toggle(id, get, set){
+  const b = document.getElementById(id);
+  b.onclick = async () => { set(!get()); b.classList.toggle('on', get()); await buildNodes(); closePanel(); };
+}
+function bindUI(){
+  document.getElementById('fDivision').onchange = async e => { filterDiv = e.target.value; await buildNodes(); closePanel(); };
+  document.getElementById('fFaction').onchange  = async e => { filterFac = e.target.value; await buildNodes(); closePanel(); };
+  toggle('bChamps', () => champsOnly, v => champsOnly = v);
+  toggle('bProv',   () => showProv,   v => showProv = v);
+  toggle('bCut',    () => showCut,    v => showCut = v);
+  document.getElementById('bSpin').onclick = e => { spin = !spin; e.target.classList.toggle('on', spin); };
+  document.getElementById('bReset').onclick = () => {
+    view.theta = 0.7; view.phi = 1.15; view.radius = 34; applyCamera(); closePanel();
+  };
+  document.getElementById('bChamps').classList.toggle('on', champsOnly);
+}
+
+/* ---------------- live theme switching ---------------- */
+function setCssVars(){
+  const root = document.documentElement;
+  for(const k in TH.ui) root.style.setProperty(k, TH.ui[k]);
+  document.querySelectorAll('.lg .dot').forEach((d, i) => {
+    d.style.background = [TH.ringChamp, TH.ringTop, TH.ringMid, TH.ringProv][i] || TH.ringMid;
+  });
+  const vg = document.querySelector('.vignette');
+  if(vg) vg.style.background =
+    'radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 34%, ' +
+    thRgba(TH.void, 0.45) + ' 78%, ' + thRgba(thDark(TH.void, 0.3), 0.85) + ' 100%)';
+}
+async function applyTheme(key, custom){
+  themeKey = custom ? 'custom' : key;
+  TH = custom ? custom : buildTheme(Object.assign({ key }, THEME_DEFS[key] || THEME_DEFS.cosmos));
+  setCssVars();
+  if(!scene) return;
+
+  // backdrop
+  if(COSMIC.sky){
+    if(COSMIC.sky.material.map) COSMIC.sky.material.map.dispose();
+    COSMIC.sky.material.map = skyTexture();
+    COSMIC.sky.material.needsUpdate = true;
+  }
+  if(scene.fog){ scene.fog.color.setHex(TH.fog); scene.fog.density = TH.fogD; }
+
+  // star tints
+  COSMIC.stars.forEach(pts => {
+    const col = pts.geometry.attributes.color.array;
+    const tint = pts.userData.tint;
+    for(let i = 0; i < tint.length; i++){
+      const c = TH.starTints[tint[i]];
+      col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2];
+    }
+    pts.geometry.attributes.color.needsUpdate = true;
+  });
+  if(COSMIC.dust) COSMIC.dust.material.color.setHex(TH.motes);
+  if(COSMIC.sparks) COSMIC.sparks.material.color.setHex(TH.apex);
+  if(COSMIC.beam){
+    if(COSMIC.beam.material.map) COSMIC.beam.material.map.dispose();
+    COSMIC.beam.material.map = beamTexture();
+    COSMIC.beam.material.needsUpdate = true;
+  }
+
+  // structure — rebuilt so the floor texture regenerates cleanly
+  if(pyramidGroup) scene.remove(pyramidGroup);
+  buildPyramid();
+
+  if(cutMesh){ cutMesh.material.color.setHex(TH.cut); }
+  if(cutRing){ cutRing.material.color.setHex(TH.cut); }
+
+  await buildNodes();      // node textures carry ring colours, so they regenerate
+  if(selected) closePanel();
+  try{ localStorage.setItem('vwa_pyr_theme', themeKey); }catch(e){}
+}
+function fillThemes(){
+  const sel = document.getElementById('fTheme');
+  sel.innerHTML = Object.entries(THEME_DEFS)
+    .map(([k, d]) => `<option value="${k}">${d.label}</option>`).join('')
+    + '<option value="custom">Custom…</option>';
+  sel.value = themeKey;
+  sel.onchange = async e => {
+    const v = e.target.value;
+    const card = document.getElementById('customCard');
+    if(v === 'custom'){ card.classList.add('open'); await applyTheme('custom', themeFromCustom()); }
+    else { card.classList.remove('open'); await applyTheme(v); }
+  };
+  const card = document.getElementById('customCard');
+  document.getElementById('bCustom').onclick = () => {
+    card.classList.toggle('open');
+    if(card.classList.contains('open')){ sel.value = 'custom'; applyTheme('custom', themeFromCustom()); }
+  };
+  ['cPrimary','cSecondary','cAccent','cVoid'].forEach(id => {
+    document.getElementById(id).oninput = () => applyTheme('custom', themeFromCustom());
+  });
+  document.getElementById('bRandomTheme').onclick = () => {
+    const rnd = () => '#' + Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
+    const hue = Math.random()*360;
+    const hsl = (h, sat, l) => {
+      h = ((h % 360) + 360) % 360;
+      const a = sat * Math.min(l, 1 - l);
+      const f = n => { const k = (n + h/30) % 12;
+        return Math.round(255 * (l - a * Math.max(-1, Math.min(k-3, 9-k, 1)))); };
+      return thHex(f(0), f(8), f(4));
+    };
+    document.getElementById('cPrimary').value   = hsl(hue, 0.75, 0.62);
+    document.getElementById('cSecondary').value = hsl(hue + 55 + Math.random()*90, 0.62, 0.42);
+    document.getElementById('cAccent').value    = hsl(hue + 180, 0.80, 0.72);
+    document.getElementById('cVoid').value      = hsl(hue, 0.45, 0.10);
+    applyTheme('custom', themeFromCustom());
+  };
+}
+
+/* ---------------- boot ---------------- */
+async function init(){
+  let saved = qs.get('theme');
+  if(!saved){ try{ saved = localStorage.getItem('vwa_pyr_theme'); }catch(e){} }
+  themeKey = (saved && (THEME_DEFS[saved] || saved === 'custom')) ? saved : 'cosmos';
+  TH = buildTheme(Object.assign({ key:themeKey }, THEME_DEFS[themeKey] || THEME_DEFS.cosmos));
+  setCssVars();
+
+  await loadData();
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(TH.fog, TH.fogD);
+  camera = new THREE.PerspectiveCamera(46, innerWidth/innerHeight, 0.1, 400);
+  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  renderer.setSize(innerWidth, innerHeight);
+  document.getElementById('stage').appendChild(renderer.domElement);
+  raycaster = new THREE.Raycaster();
+
+  buildCosmos();
+  buildPyramid();
+  buildCutPlane();
+  fillFilters();
+  fillThemes();
+  bindUI();
+  await buildNodes();
+  applyCamera();
+  bindControls(renderer.domElement);
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  document.getElementById('loading').style.display = 'none';
+  if(isDemo){
+    const b = document.createElement('div');
+    b.className = 'ui banner';
+    b.textContent = 'Sample roster — run patch 9 and this fills with your real standings';
+    document.body.appendChild(b);
+  }
+  animate();
+}
+let t0 = performance.now(), tPrev = t0;
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const t = (now - t0) / 1000;
+  const dt = Math.min(0.05, (now - tPrev) / 1000);
+  tPrev = now;
+
+  if(spin){ view.theta += 0.0016; applyCamera(); }
+
+  // wrestlers drift, their auras breathe with them
+  nodes.forEach(n => {
+    const y = n.userData.baseY + Math.sin(t * 0.9 + n.userData.phase) * 0.11;
+    n.position.y = y;
+    const a = n.userData.aura;
+    if(a){
+      a.position.set(n.position.x, y, n.position.z);
+      a.material.opacity = n.userData.auraBase * (0.78 + Math.sin(t * 1.5 + n.userData.phase) * 0.30);
+    }
+  });
+  if(COSMIC.thread && nodes.length > 1){
+    const arr = COSMIC.thread.geometry.attributes.position.array;
+    nodes.forEach((n, i) => { arr[i*3] = n.position.x; arr[i*3+1] = n.position.y; arr[i*3+2] = n.position.z; });
+    COSMIC.thread.geometry.attributes.position.needsUpdate = true;
+    COSMIC.thread.material.opacity = 0.13 + Math.sin(t * 0.8) * 0.06;
+  }
+
+  // starfields turn at their own speeds for parallax
+  COSMIC.stars.forEach(p => { p.rotation.y += p.userData.spin; });
+  if(COSMIC.sky) COSMIC.sky.rotation.y += 0.00004;
+
+  // motes rise and wrap
+  if(COSMIC.dust){
+    const pos = COSMIC.dust.geometry.attributes.position.array;
+    const sd = COSMIC.dust.userData.seed;
+    for(let i = 0; i < pos.length / 3; i++){
+      pos[i*3+1] += sd[i*3+1] * dt * 0.5 * TH.rise;
+      if(TH.rise >= 0){ if(pos[i*3+1] > 32) pos[i*3+1] = -3; }
+      else if(pos[i*3+1] < -3) pos[i*3+1] = 32;
+      const a = sd[i*3] + t * 0.06;
+      pos[i*3]   = Math.cos(a) * sd[i*3+2];
+      pos[i*3+2] = Math.sin(a) * sd[i*3+2];
+    }
+    COSMIC.dust.geometry.attributes.position.needsUpdate = true;
+    COSMIC.dust.material.opacity = 0.45 + Math.sin(t * 0.7) * 0.12;
+  }
+
+  updateHelixDust(t);
+
+  // the vacant throne
+  const apex = pyramidGroup.getObjectByName('apex');
+  const halo = pyramidGroup.getObjectByName('halo');
+  if(apex) apex.material.opacity = 0.65 + Math.sin(t*2)*0.3;
+  if(halo){ const k = 1 + Math.sin(t*2)*0.14; halo.scale.set(k,k,k); }
+  if(COSMIC.beam){
+    COSMIC.beam.material.opacity = 0.22 + Math.sin(t * 1.1) * 0.09;
+    COSMIC.beam.rotation.y += 0.0011;
+  }
+  if(COSMIC.sparks){
+    const { par, N } = COSMIC.sparks.userData;
+    const sp = COSMIC.sparks.geometry.attributes.position.array;
+    for(let i = 0; i < N; i++){
+      const a = par[i*3] + t * (0.35 + par[i*3+1] * 0.16);
+      const rr = par[i*3+1];
+      sp[i*3]   = Math.cos(a) * rr;
+      sp[i*3+1] = H_PYR + par[i*3+2] + Math.sin(t * 1.4 + par[i*3]) * 0.5;
+      sp[i*3+2] = Math.sin(a) * rr;
+    }
+    COSMIC.sparks.geometry.attributes.position.needsUpdate = true;
+  }
+  if(COSMIC.floor) COSMIC.floor.material.opacity = 0.72 + Math.sin(t * 0.9) * 0.14;
+
+  stepComets(t, dt);
+
+  if(cutRing) cutRing.material.opacity = 0.55 + Math.sin(t*1.6)*0.22;
+  if(cutMesh) cutMesh.material.opacity = 0.07 + Math.sin(t*1.6)*0.03;
+  renderer.render(scene, camera);
+}
+init();
+</script>
+</body>
+</html>
