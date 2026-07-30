@@ -271,6 +271,8 @@
   .form-chip{ width:16px; height:16px; border-radius:4px; font-family:'JetBrains Mono'; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; }
   .form-chip.w{ background:rgba(62,142,130,0.22); color:var(--teal); }
   .form-chip.l{ background:rgba(224,92,92,0.18); color:#e05c5c; }
+  .nav-out{ background:none; border:none; color:var(--text-dim); font-family:'Oswald'; font-size:12.5px; letter-spacing:0.09em; text-transform:uppercase; cursor:pointer; padding:9px 14px; text-decoration:none; display:inline-block; }
+  .nav-out:hover{ color:var(--gold-bright); }
 </style>
 </head>
 <body>
@@ -296,6 +298,7 @@
   <button data-page="upcoming" onclick="go('upcoming')">Upcoming</button>
   <button data-page="watch" onclick="go('watch')" id="watchNavBtn">Watch<span class="live-dot" id="liveDot" style="display:none;"></span></button>
   <button data-page="news" onclick="go('news')">Storylines</button>
+  <a class="nav-out" href="pyramid.html">The Climb</a>
   <button data-page="predictions" onclick="go('predictions')">Predictions</button>
   <button data-page="leaderboard" onclick="go('leaderboard')">Leaderboard</button>
   <button data-page="roster" onclick="go('roster')">Roster</button>
