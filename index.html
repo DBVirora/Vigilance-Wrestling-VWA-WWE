@@ -329,6 +329,34 @@
     filter:drop-shadow(0 0 40px rgba(214,45,140,0.55)); }
   @keyframes bootPulse{ 0%,100%{ transform:scale(0.97); opacity:0.82; } 50%{ transform:scale(1.03); opacity:1; } }
   @media(max-width:760px){ .navbrand img{ height:30px; } .site-foot img{ height:48px; } }
+  .hero{ position:relative; overflow:hidden; border:1px solid var(--border); border-radius:16px;
+    margin:18px auto 26px; max-width:1200px; min-height:clamp(330px, 42vw, 560px);
+    display:flex; align-items:flex-end; background:var(--panel); }
+  .hero-banner{ position:absolute; inset:0; background-size:cover; background-position:center 34%;
+    background-repeat:no-repeat; transform:scale(1.02); }
+  .hero-scrim{ position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(180deg, rgba(13,11,18,0.30) 0%, rgba(13,11,18,0.05) 34%,
+      rgba(13,11,18,0.72) 72%, rgba(13,11,18,0.96) 100%),
+      linear-gradient(90deg, rgba(13,11,18,0.75) 0%, rgba(13,11,18,0.15) 46%, rgba(13,11,18,0.0) 70%); }
+  .hero-inner{ position:relative; z-index:2; max-width:660px; padding:34px 38px 32px; }
+  .hero-brandline{ font-family:'Oswald'; font-size:10.5px; letter-spacing:0.34em; color:var(--gold-bright);
+    text-transform:uppercase; margin-bottom:8px; text-shadow:0 2px 12px rgba(0,0,0,0.9); }
+  .hero h1{ font-family:'Oswald'; font-size:clamp(26px, 4.2vw, 40px); color:var(--canvas);
+    text-transform:none; line-height:1.05; margin-bottom:10px; text-shadow:0 3px 20px rgba(0,0,0,0.95); }
+  .hero-blurb{ font-size:13.5px; color:#d9d2e2; line-height:1.7; margin-bottom:18px;
+    text-shadow:0 2px 12px rgba(0,0,0,0.95); }
+  .hero-ctas{ display:flex; gap:9px; flex-wrap:wrap; }
+  .hero-btn{ font-size:12.5px; padding:11px 20px; }
+  .hero-logo{ position:absolute; right:30px; top:26px; z-index:3; height:74px; width:auto;
+    filter:drop-shadow(0 6px 22px rgba(0,0,0,0.7)); }
+  @media(max-width:760px){
+    .hero{ min-height:400px; border-radius:12px; margin:12px auto 20px; }
+    .hero-banner{ background-position:center 28%; }
+    .hero-inner{ padding:22px 20px 24px; }
+    .hero-scrim{ background:linear-gradient(180deg, rgba(13,11,18,0.25) 0%, rgba(13,11,18,0.12) 26%,
+      rgba(13,11,18,0.82) 62%, rgba(13,11,18,0.97) 100%); }
+    .hero-logo{ display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -339,17 +367,20 @@
 <div class="accountbar" id="accountBar"></div>
 
 <header class="hero" id="heroArea">
+  <div class="hero-banner" id="heroBanner" style="background-image:url('https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/Vigilance%20wrestling%20monkey%20logo.png');"></div>
+  <div class="hero-scrim"></div>
   <div class="hero-inner">
     <div class="hero-brandline" id="heroBrandline">VIGILANCE WRESTLING ASSOCIATION</div>
     <h1 id="heroHeading">Welcome to the VWA</h1>
     <p class="hero-blurb" id="heroBlurb">Every card, every result, every championship — plus free-points betting on upcoming matches. Sign in with Discord and put your Celestium where your mouth is.</p>
     <div class="hero-ctas">
       <button class="btn hero-btn" onclick="go('predictions')">🎲 Watch &amp; Bet</button>
+      <button class="btn ghost hero-btn" onclick="go('upcoming')">See the Card</button>
       <button class="btn ghost hero-btn" onclick="go('roster')">Meet the Roster</button>
     </div>
   </div>
-  <img class="hero-logo" id="heroLogo" src="https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/craiyon_174442_image.png" alt="VWA">
-  <img class="hero-watermark" id="heroWatermark" src="https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/craiyon_174442_image.png" alt="">
+  <img class="hero-logo" id="heroLogo" alt="" style="display:none;">
+  <img class="hero-watermark" id="heroWatermark" alt="" style="display:none;">
 </header>
 
 <nav class="tabs" id="mainNav">
@@ -1346,9 +1377,12 @@ async function loadBranding(){
     if(v.heading) document.getElementById('heroHeading').textContent = v.heading;
     if(v.tagline) document.getElementById('heroBrandline').textContent = v.tagline.toUpperCase();
     if(v.blurb) document.getElementById('heroBlurb').textContent = v.blurb;
+    if(v.banner_url){
+      document.getElementById('heroBanner').style.backgroundImage = "url('" + v.banner_url + "')";
+    }
     if(v.logo_url){
-      document.getElementById('heroLogo').src = v.logo_url;
-      document.getElementById('heroWatermark').src = v.logo_url;
+      const l = document.getElementById('heroLogo');
+      l.src = v.logo_url; l.style.display = 'block';
     }
   }catch(e){}
 }
