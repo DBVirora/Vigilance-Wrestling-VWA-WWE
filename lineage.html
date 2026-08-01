@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   :root{
-    --void:#04060e; --deep:#0b1424; --p:#7fd6ff; --s:#3f7fae; --a:#e8d98a;
+    --void:#04060e; --deep:#0b1424; --p:#7fd6ff; --s:#3f7fae; --a:#e8c26a;
     --panel:rgba(9,16,30,0.92); --border:rgba(127,214,255,0.28);
     --text:#e6f4ff; --dim:#8fa6c0;
   }
@@ -135,6 +135,7 @@
 <div class="loading" id="loading">CHARTING THE STARS…</div>
 
 <script>
+const VWA_LOGO = 'https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/craiyon_174442_image.png';
 const SUPA_URL = 'https://yrshjuzumevawnoihxee.supabase.co';
 const SUPA_KEY = 'sb_publishable_InTnMqGlp3uoEz8--XKhQA_mix-bBGs';
 const qs = new URLSearchParams(location.search);
@@ -421,6 +422,13 @@ function buildCosmos(){
     (cosmos.stars = cosmos.stars || []).push(p);
     scene.add(p);
   });
+
+  const crestTex = new THREE.TextureLoader().load(VWA_LOGO);
+  cosmos.crest = new THREE.Sprite(new THREE.SpriteMaterial({ map:crestTex, transparent:true,
+    opacity:0.10, depthWrite:false, blending:THREE.AdditiveBlending, fog:false }));
+  cosmos.crest.scale.set(52, 52, 1);
+  cosmos.crest.position.set(0, 8, -58);
+  scene.add(cosmos.crest);
 
   const N = 600, dp = new Float32Array(N * 3), sd = new Float32Array(N * 3);
   for(let i = 0; i < N; i++){
@@ -816,6 +824,7 @@ function animate(){
     }
     cosmos.crown.geometry.attributes.position.needsUpdate = true;
   }
+  if(cosmos.crest) cosmos.crest.material.opacity = 0.085 + Math.sin(t * 0.5) * 0.025;
   (cosmos.stars || []).forEach(p => p.rotation.y += p.userData.spin);
   if(cosmos.sky) cosmos.sky.rotation.y += 0.00004;
   if(cosmos.dust){
