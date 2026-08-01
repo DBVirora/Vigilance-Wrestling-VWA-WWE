@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VWA — The Lineage</title>
+<!--
+  THE LINEAGE — championship constellation
+  Upload alongside index.html as  lineage.html
+
+  URL options:
+    ?demo=1        sample lineage (no database needed)
+    ?title=<id>    open straight to one championship
+    ?bare=1        hide UI (OBS source)
+    ?sky=0         transparent backdrop
+    ?mute=1        start muted
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --void:#04060e; --deep:#0b1424; --p:#7fd6ff; --s:#3f7fae; --a:#e8d98a;
+    --panel:rgba(9,16,30,0.92); --border:rgba(127,214,255,0.28);
+    --text:#e6f4ff; --dim:#8fa6c0;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ width:100%; height:100%; overflow:hidden; background:var(--void);
+    font-family:'Oswald',sans-serif; color:var(--text); }
+  body.bare .ui{ display:none !important; }
+  #stage{ position:fixed; inset:0; }
+  canvas{ display:block; }
+  .vignette{ position:fixed; inset:0; pointer-events:none; z-index:4;
+    background:radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 32%, rgba(2,5,12,0.5) 76%, rgba(1,3,8,0.88) 100%); }
+
+  .topbar{ position:fixed; top:0; left:0; right:0; z-index:10; padding:14px 18px;
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    background:linear-gradient(180deg, rgba(4,6,14,0.9), rgba(4,6,14,0)); }
+  .brand{ font-family:'Cinzel',serif; font-size:18px; color:var(--a); letter-spacing:0.09em;
+    text-shadow:0 0 24px rgba(232,217,138,0.45); }
+  .brand small{ display:block; font-family:'Oswald'; font-size:9px; letter-spacing:0.3em;
+    color:var(--dim); text-transform:uppercase; text-shadow:none; }
+  select,.btn{ background:rgba(11,20,36,0.9); border:1px solid var(--border); color:var(--text);
+    padding:7px 13px; border-radius:8px; font-family:'Oswald'; font-size:11.5px;
+    letter-spacing:0.07em; text-transform:uppercase; cursor:pointer; outline:none; }
+  select:hover,.btn:hover{ border-color:var(--p); color:var(--p); }
+  .btn.on{ border-color:var(--p); color:var(--p); background:rgba(127,214,255,0.12); }
+  .spacer{ flex:1; }
+
+  .reign{ position:fixed; right:18px; top:76px; width:320px; max-height:calc(100vh - 116px);
+    overflow-y:auto; z-index:11; background:var(--panel); border:1px solid var(--border);
+    border-radius:14px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transform:translateX(372px); transition:transform .34s cubic-bezier(.2,.9,.3,1);
+    box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+  .reign.open{ transform:translateX(0); }
+  .r-close{ position:absolute; top:10px; right:10px; z-index:3; width:28px; height:28px;
+    border-radius:50%; background:rgba(4,6,14,0.8); border:1px solid var(--border);
+    color:var(--text); cursor:pointer; font-size:13px; }
+  .r-photo{ position:relative; height:180px; border-radius:13px 13px 0 0; overflow:hidden;
+    background:radial-gradient(circle at 50% 32%, rgba(127,214,255,0.18), transparent 68%), rgba(11,20,36,0.9);
+    display:flex; align-items:center; justify-content:center; }
+  .r-photo img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+    object-position:center bottom; padding:8px 8px 44px; }
+  .r-initials{ font-family:'Cinzel'; font-size:52px; color:rgba(127,214,255,0.4); }
+  .r-nameblock{ position:relative; z-index:2; width:100%; padding:10px 14px;
+    background:linear-gradient(0deg, rgba(4,6,14,0.95), transparent); }
+  .r-num{ font-family:'JetBrains Mono'; font-size:11px; color:var(--a); }
+  .r-name{ font-family:'Oswald'; font-size:21px; text-transform:uppercase; line-height:1.1; }
+  .r-body{ padding:14px; }
+  .r-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .r-stat{ background:rgba(11,20,36,0.85); border:1px solid var(--border); border-radius:9px; padding:9px 11px; }
+  .r-stat .n{ font-family:'JetBrains Mono'; font-size:16px; color:var(--p); }
+  .r-stat .l{ font-size:8.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.11em; margin-top:2px; }
+  .r-head{ font-size:9.5px; letter-spacing:0.15em; text-transform:uppercase; color:var(--a); margin:13px 0 7px; }
+  .r-line{ font-size:12.5px; color:var(--dim); line-height:1.65; }
+  .r-line b{ color:var(--text); font-weight:600; }
+  .tag{ display:inline-block; font-size:9px; padding:3px 9px; border-radius:11px;
+    letter-spacing:0.09em; text-transform:uppercase; margin:0 4px 4px 0; }
+  .tag.cur{ background:rgba(232,217,138,0.18); color:var(--a); }
+  .tag.long{ background:rgba(127,214,255,0.16); color:var(--p); }
+
+  .legend{ position:fixed; left:18px; bottom:18px; z-index:10; background:var(--panel);
+    border:1px solid var(--border); border-radius:11px; padding:12px 14px; font-size:11px;
+    color:var(--dim); line-height:1.9; max-width:224px; backdrop-filter:blur(9px); }
+  .legend b{ display:block; color:var(--a); font-size:10px; letter-spacing:0.14em;
+    text-transform:uppercase; margin-bottom:6px; }
+  .lg{ display:flex; align-items:center; gap:8px; }
+  .dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+  .hint{ position:fixed; right:18px; bottom:18px; z-index:9; font-size:10.5px;
+    color:rgba(143,166,192,0.55); letter-spacing:0.08em; }
+  .loading{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    z-index:20; background:var(--void); color:var(--a); font-family:'Cinzel'; font-size:15px;
+    letter-spacing:0.3em; text-shadow:0 0 24px rgba(232,217,138,0.5); }
+  .banner{ position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:12;
+    background:rgba(232,217,138,0.12); border:1px solid rgba(232,217,138,0.45); color:var(--a);
+    padding:9px 16px; border-radius:20px; font-size:11px; letter-spacing:0.06em; }
+  .reign::-webkit-scrollbar{ width:6px; }
+  .reign::-webkit-scrollbar-thumb{ background:var(--border); border-radius:3px; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="vignette"></div>
+
+<div class="ui topbar">
+  <div class="brand">The Lineage<small>Vigilance Wrestling Association</small></div>
+  <select id="fTitle"></select>
+  <button class="btn on" id="bSpin">Drift</button>
+  <button class="btn on" id="bSound">🔊 Sound</button>
+  <div class="spacer"></div>
+  <button class="btn" id="bPrev">‹ Prev</button>
+  <button class="btn" id="bNext">Next ›</button>
+  <button class="btn" id="bReset">Overview</button>
+</div>
+
+<div class="ui legend">
+  <b>The constellation</b>
+  <div class="lg"><span class="dot" style="background:#e8d98a;"></span> Current champion</div>
+  <div class="lg"><span class="dot" style="background:#7fd6ff;"></span> Past reign</div>
+  <div class="lg"><span class="dot" style="background:#c86fe8;"></span> Longest reign</div>
+  <div class="lg"><span class="dot" style="background:#4a5a72;"></span> Vacated</div>
+  <div style="margin-top:7px; border-top:1px solid var(--border); padding-top:7px;">
+    Star size = reign length · click any star to travel
+  </div>
+</div>
+
+<div class="reign" id="reign">
+  <button class="r-close" onclick="closeReign()">✕</button>
+  <div id="reignInner"></div>
+</div>
+
+<div class="ui hint">Drag to orbit · scroll to zoom · click a star</div>
+<div class="loading" id="loading">CHARTING THE STARS…</div>
+
+<script>
+const SUPA_URL = 'https://yrshjuzumevawnoihxee.supabase.co';
+const SUPA_KEY = 'sb_publishable_InTnMqGlp3uoEz8--XKhQA_mix-bBGs';
+const qs = new URLSearchParams(location.search);
+if(qs.get('bare') === '1') document.body.classList.add('bare');
+
+/* ================= demo lineage ================= */
+const DEMO_TITLES = [
+  { id:'t1', name:'VWA World Championship' },
+  { id:'t2', name:'VWA Vigilance Championship' }
+];
+const DEMO_HISTORY = [
+  { id:'h1', title_id:'t1', wrestler_id:'d1', wrestler_name:'Magnus Volkov', won_method:'pin', won_date:'2026-03-14', lost_method:'sub', lost_date:'2026-05-02' },
+  { id:'h2', title_id:'t1', wrestler_id:'d2', wrestler_name:'Billy',         won_method:'sub', won_date:'2026-05-02', lost_method:'ko',  lost_date:'2026-06-20' },
+  { id:'h3', title_id:'t1', wrestler_id:'d3', wrestler_name:'EK Prosper',    won_method:'ko',  won_date:'2026-06-20', lost_method:null,  lost_date:null },
+  { id:'h4', title_id:'t2', wrestler_id:'d5', wrestler_name:'Sable Wren',    won_method:'pin', won_date:'2026-04-01', lost_method:'stip',lost_date:'2026-07-11' },
+  { id:'h5', title_id:'t2', wrestler_id:'d6', wrestler_name:'Nyx Calloway',  won_method:'stip',won_date:'2026-07-11', lost_method:null,  lost_date:null }
+];
+const METHOD_LABEL = { pin:'Pinfall', sub:'Submission', ko:'Knockout', dq:'Disqualification',
+  co:'Countout', escape:'Escape', quit:'Forced to Quit', stip:'Stipulation', tbd:'Undecided' };
+
+let TITLES = [], HISTORY = [], WREST = {}, isDemo = false;
+let activeTitle = null, chain = [], focusIdx = -1;
+
+/* ================= audio ================= */
+let actx = null, soundOn = qs.get('mute') !== '1';
+function ac(){
+  if(!actx){ try{ actx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+  if(actx && actx.state === 'suspended') actx.resume();
+  return actx;
+}
+/* soft mallet — the navigation tick */
+function sfxMove(pitch){
+  if(!soundOn) return; const a = ac(); if(!a) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter();
+  o.type = 'sine'; o.frequency.setValueAtTime(pitch || 520, t);
+  o.frequency.exponentialRampToValueAtTime((pitch || 520) * 0.82, t + 0.22);
+  f.type = 'lowpass'; f.frequency.value = 2400;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.16, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+  o.connect(f); f.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + 0.45);
+  // shimmering overtone
+  const o2 = a.createOscillator(), g2 = a.createGain();
+  o2.type = 'triangle'; o2.frequency.setValueAtTime((pitch || 520) * 2.02, t);
+  g2.gain.setValueAtTime(0.0001, t);
+  g2.gain.exponentialRampToValueAtTime(0.05, t + 0.02);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+  o2.connect(g2); g2.connect(a.destination);
+  o2.start(t); o2.stop(t + 0.32);
+}
+/* deeper resonant chime — selecting a reign */
+function sfxSelect(){
+  if(!soundOn) return; const a = ac(); if(!a) return;
+  const t = a.currentTime;
+  [392, 587.3, 784].forEach((fr, i) => {
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = i === 0 ? 'sine' : 'triangle';
+    o.frequency.setValueAtTime(fr, t);
+    const amp = [0.13, 0.08, 0.05][i];
+    g.gain.setValueAtTime(0.0001, t + i * 0.03);
+    g.gain.exponentialRampToValueAtTime(amp, t + i * 0.03 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+    o.connect(g); g.connect(a.destination);
+    o.start(t + i * 0.03); o.stop(t + 1.6);
+  });
+}
+/* airy sweep — switching championships */
+function sfxSweep(){
+  if(!soundOn) return; const a = ac(); if(!a) return;
+  const t = a.currentTime;
+  const buf = a.createBuffer(1, a.sampleRate * 0.9, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i = 0; i < d.length; i++){
+    const k = i / d.length;
+    d[i] = (Math.random() * 2 - 1) * Math.pow(1 - k, 2.2) * 0.5;
+  }
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = 'bandpass';
+  f.frequency.setValueAtTime(600, t);
+  f.frequency.exponentialRampToValueAtTime(4200, t + 0.75);
+  f.Q.value = 1.4;
+  const g = a.createGain(); g.gain.value = 0.16;
+  src.connect(f); f.connect(g); g.connect(a.destination);
+  src.start(t);
+}
+function sfxHover(){
+  if(!soundOn) return; const a = ac(); if(!a) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(1180, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.035, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + 0.15);
+}
+
+/* ================= data ================= */
+async function loadData(){
+  if(qs.get('demo') === '1'){
+    TITLES = DEMO_TITLES.slice(); HISTORY = DEMO_HISTORY.slice(); isDemo = true; return;
+  }
+  try{
+    const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const [t, h, w] = await Promise.all([
+      db.from('titles').select('*'),
+      db.from('title_history').select('*').order('won_date'),
+      db.from('wrestlers').select('id,name,photo_url,nickname')
+    ]);
+    if(t.error || !t.data || !t.data.length) throw new Error('none');
+    TITLES = t.data; HISTORY = h.data || [];
+    (w.data || []).forEach(x => WREST[x.id] = x);
+    if(!HISTORY.length) throw new Error('no reigns yet');
+    isDemo = false;
+  }catch(e){
+    TITLES = DEMO_TITLES.slice(); HISTORY = DEMO_HISTORY.slice(); isDemo = true;
+  }
+}
+function buildChain(titleId){
+  const rows = HISTORY.filter(h => h.title_id === titleId)
+    .sort((a, b) => String(a.won_date).localeCompare(String(b.won_date)));
+  const now = Date.now();
+  const durations = rows.map(r => {
+    const s = new Date(r.won_date).getTime();
+    const e = r.lost_date ? new Date(r.lost_date).getTime() : now;
+    return Math.max(1, Math.round((e - s) / 86400000));
+  });
+  const longest = Math.max(1, ...durations);
+  return rows.map((r, i) => ({
+    ...r, idx: i, days: durations[i],
+    isCurrent: !r.lost_date,
+    isLongest: durations[i] === longest && durations.length > 1,
+    share: durations[i] / longest,
+    photo: (WREST[r.wrestler_id] || {}).photo_url || null
+  }));
+}
+
+/* ================= scene ================= */
+let scene, camera, renderer, raycaster, starGroup, linkGroup, cosmos = {};
+let stars = [], hoverIdx = -1;
+const view = { theta: 0.0, phi: 1.24, radius: 30, target: new THREE.Vector3(0, 0, 0) };
+const target = { theta: 0.0, phi: 1.24, radius: 30, tx: 0, ty: 0, tz: 0 };
+let drift = true;
+
+function dotTex(core, edge){
+  const S = 64, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const c = cv.getContext('2d');
+  const g = c.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+  g.addColorStop(0, core); g.addColorStop(0.3, edge); g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, S, S);
+  return new THREE.CanvasTexture(cv);
+}
+const T = {};
+function skyTex(){
+  const W = 2048, H = 1024, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#132844'); g.addColorStop(0.35, '#0b1728');
+  g.addColorStop(0.72, '#060c17'); g.addColorStop(1, '#03060d');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  [[380,260,'#2f6fa8',430,0.30],[1240,210,'#5b8fd0',390,0.22],[860,400,'#7a5fc0',460,0.18],
+   [1700,340,'#2a6f8a',400,0.24],[150,560,'#3f4f9a',360,0.16]].forEach(([x,y,col,r,a]) => {
+    const rg = c.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, col); rg.addColorStop(1, col + '00');
+    c.globalAlpha = a; c.fillStyle = rg;
+    c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  });
+  c.globalAlpha = 1;
+  let sd = 4211; const rnd = () => (sd = (sd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for(let i = 0; i < 1500; i++){
+    const t = rnd();
+    c.fillStyle = t > 0.92 ? 'rgba(232,217,138,0.8)' : t > 0.74 ? 'rgba(127,214,255,0.75)'
+      : 'rgba(255,255,255,' + (0.25 + rnd() * 0.55) + ')';
+    c.beginPath(); c.arc(rnd() * W, rnd() * H, rnd() * 1.5 + 0.3, 0, 7); c.fill();
+  }
+  return new THREE.CanvasTexture(cv);
+}
+function starTexture(node, num){
+  const S = 256, HGT = 340, cv = document.createElement('canvas');
+  cv.width = S; cv.height = HGT;
+  const c = cv.getContext('2d');
+  const cx = S / 2, cy = 112, rad = 82;
+  const col = node.isCurrent ? '#e8d98a' : node.isLongest ? '#c86fe8' : node.vacated ? '#4a5a72' : '#7fd6ff';
+
+  // outer glow
+  const gg = c.createRadialGradient(cx, cy, rad * 0.6, cx, cy, rad * 1.55);
+  gg.addColorStop(0, col + '55'); gg.addColorStop(1, col + '00');
+  c.fillStyle = gg; c.beginPath(); c.arc(cx, cy, rad * 1.55, 0, 7); c.fill();
+
+  c.save();
+  c.beginPath(); c.arc(cx, cy, rad, 0, 7); c.closePath();
+  c.fillStyle = 'rgba(6,11,22,0.96)'; c.fill(); c.clip();
+  if(node._img){
+    const side = Math.min(node._img.width, node._img.height);
+    c.drawImage(node._img, (node._img.width - side) / 2,
+      Math.min(node._img.height - side, node._img.height * 0.02), side, side,
+      cx - rad, cy - rad, rad * 2, rad * 2);
+  } else {
+    c.fillStyle = col; c.globalAlpha = 0.22; c.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+    c.globalAlpha = 1;
+    const init = (node.wrestler_name || '?').split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    c.fillStyle = col; c.font = '700 58px Cinzel, serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(init, cx, cy);
+  }
+  c.restore();
+
+  // rune ring
+  c.beginPath(); c.arc(cx, cy, rad, 0, 7);
+  c.lineWidth = node.isCurrent ? 9 : 6; c.strokeStyle = col; c.stroke();
+  c.beginPath(); c.arc(cx, cy, rad + 10, 0, 7);
+  c.lineWidth = 1.5; c.strokeStyle = col + '44'; c.stroke();
+  // tick marks like a constellation dial
+  for(let i = 0; i < 12; i++){
+    const a = (i / 12) * Math.PI * 2;
+    const r1 = rad + 13, r2 = rad + (i % 3 === 0 ? 22 : 17);
+    c.beginPath();
+    c.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    c.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+    c.lineWidth = i % 3 === 0 ? 3 : 1.5; c.strokeStyle = col + (i % 3 === 0 ? 'aa' : '55');
+    c.stroke();
+  }
+  // reign number badge
+  c.beginPath(); c.arc(cx - rad * 0.74, cy - rad * 0.74, 25, 0, 7);
+  c.fillStyle = '#050a14'; c.fill();
+  c.lineWidth = 3; c.strokeStyle = col; c.stroke();
+  c.fillStyle = col; c.font = '700 24px "JetBrains Mono", monospace';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(String(num), cx - rad * 0.74, cy - rad * 0.74 + 1);
+
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  c.fillStyle = '#e6f4ff'; c.font = '600 29px Oswald, sans-serif';
+  let nm = (node.wrestler_name || '').toUpperCase();
+  while(c.measureText(nm).width > S - 14 && nm.length > 3) nm = nm.slice(0, -1);
+  c.fillText(nm, cx, 220);
+  c.fillStyle = col; c.font = '700 22px "JetBrains Mono", monospace';
+  c.fillText(node.days + (node.days === 1 ? ' DAY' : ' DAYS'), cx, 258);
+  c.fillStyle = '#8fa6c0'; c.font = '500 18px Oswald, sans-serif';
+  c.fillText(new Date(node.won_date).toLocaleDateString(undefined, { month:'short', year:'numeric' }).toUpperCase(), cx, 290);
+
+  const tx = new THREE.CanvasTexture(cv);
+  tx.needsUpdate = true;
+  return tx;
+}
+function loadPhoto(n){
+  return new Promise(res => {
+    if(!n.photo) return res(null);
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => { n._img = im; res(im); };
+    im.onerror = () => res(null);
+    im.src = n.photo;
+  });
+}
+function buildCosmos(){
+  T.star = dotTex('rgba(255,255,255,1)', 'rgba(180,220,255,0.5)');
+  T.mote = dotTex('rgba(200,235,255,0.95)', 'rgba(127,214,255,0.35)');
+  T.glow = dotTex('rgba(255,255,255,0.9)', 'rgba(127,214,255,0.3)');
+
+  if(qs.get('sky') !== '0'){
+    cosmos.sky = new THREE.Mesh(new THREE.SphereGeometry(190, 40, 28),
+      new THREE.MeshBasicMaterial({ map: skyTex(), side: THREE.BackSide, depthWrite: false, fog: false }));
+    scene.add(cosmos.sky);
+  }
+  [[1400, 70, 110, 1.5, 0.85, 0.00020], [900, 110, 150, 2.5, 0.7, -0.00013],
+   [420, 150, 178, 3.7, 0.55, 0.00007]].forEach(([n, r0, r1, size, op, spin]) => {
+    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+    for(let i = 0; i < n; i++){
+      const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
+      const rr = r0 + Math.random() * (r1 - r0), sp = Math.sqrt(1 - u * u);
+      pos[i*3] = rr * sp * Math.cos(th); pos[i*3+1] = rr * u * 0.8; pos[i*3+2] = rr * sp * Math.sin(th);
+      const t = Math.random();
+      const c = t > 0.9 ? [0.91, 0.85, 0.54] : t > 0.7 ? [0.5, 0.84, 1] : [1, 1, 1];
+      col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2];
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const p = new THREE.Points(g, new THREE.PointsMaterial({ map:T.star, size, sizeAttenuation:true,
+      transparent:true, opacity:op, depthWrite:false, blending:THREE.AdditiveBlending,
+      vertexColors:true, fog:false }));
+    p.userData.spin = spin;
+    (cosmos.stars = cosmos.stars || []).push(p);
+    scene.add(p);
+  });
+
+  const N = 600, dp = new Float32Array(N * 3), sd = new Float32Array(N * 3);
+  for(let i = 0; i < N; i++){
+    const a = Math.random() * Math.PI * 2, rr = 5 + Math.random() * 30;
+    dp[i*3] = Math.cos(a) * rr; dp[i*3+1] = Math.random() * 26 - 13; dp[i*3+2] = Math.sin(a) * rr;
+    sd[i*3] = Math.random() * 6.28; sd[i*3+1] = 0.2 + Math.random() * 0.55; sd[i*3+2] = rr;
+  }
+  const dg = new THREE.BufferGeometry();
+  dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
+  cosmos.dust = new THREE.Points(dg, new THREE.PointsMaterial({ map:T.mote, size:0.55,
+    sizeAttenuation:true, transparent:true, opacity:0.5, depthWrite:false,
+    blending:THREE.AdditiveBlending, color:0x9fd8ff, fog:false }));
+  cosmos.dust.userData.seed = sd;
+  scene.add(cosmos.dust);
+}
+
+/* ---- the constellation itself ---- */
+function layout(nodes){
+  // gentle ascending arc — later reigns sit higher and further along
+  const n = nodes.length;
+  const spanX = Math.min(46, Math.max(16, n * 5.4));
+  return nodes.map((node, i) => {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const x = (t - 0.5) * spanX;
+    const y = Math.sin(t * Math.PI) * 3.4 + t * 5.2 - 2.4;
+    const z = Math.cos(t * Math.PI * 1.7) * 3.6;
+    return new THREE.Vector3(x, y, z);
+  });
+}
+function linkTexture(){
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 8;
+  const c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, 0, 128, 0);
+  g.addColorStop(0, 'rgba(127,214,255,0)');
+  g.addColorStop(0.5, 'rgba(190,235,255,0.95)');
+  g.addColorStop(1, 'rgba(127,214,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 128, 8);
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = THREE.RepeatWrapping;
+  return t;
+}
+async function buildConstellation(){
+  if(starGroup) scene.remove(starGroup);
+  if(linkGroup) scene.remove(linkGroup);
+  starGroup = new THREE.Group(); linkGroup = new THREE.Group();
+  stars = [];
+
+  const nodes = chain;
+  if(!nodes.length){
+    scene.add(starGroup); scene.add(linkGroup);
+    return;
+  }
+  await Promise.all(nodes.slice(0, 40).map(loadPhoto));
+  const pts = layout(nodes);
+
+  // connecting threads with travelling light
+  for(let i = 0; i < pts.length - 1; i++){
+    const a = pts[i], b = pts[i + 1];
+    const mid = a.clone().lerp(b, 0.5);
+    mid.y += 1.2;
+    const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+    const cps = curve.getPoints(28);
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(cps),
+      new THREE.LineBasicMaterial({ color: 0x7fd6ff, transparent: true, opacity: 0.32,
+        depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    linkGroup.add(line);
+
+    // a spark that travels the thread, showing the belt changing hands
+    const spark = new THREE.Sprite(new THREE.SpriteMaterial({ map:T.glow, color:0xbfe9ff,
+      transparent:true, opacity:0.9, depthWrite:false, blending:THREE.AdditiveBlending, fog:false }));
+    spark.scale.set(1.1, 1.1, 1);
+    spark.userData = { curve, offset: i * 0.28 };
+    linkGroup.add(spark);
+  }
+
+  nodes.forEach((node, i) => {
+    const p = pts[i];
+    const tex = starTexture(node, i + 1);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true,
+      depthWrite:false, opacity:1, fog:false }));
+    const s = 2.6 * (0.72 + 0.5 * node.share);
+    sp.scale.set(s, s * (340 / 256), 1);
+    sp.position.copy(p);
+    sp.renderOrder = 3;
+    sp.userData = { node, idx:i, base:p.clone(), phase:i * 0.8, size:s };
+    starGroup.add(sp);
+    stars.push(sp);
+
+    const col = node.isCurrent ? 0xe8d98a : node.isLongest ? 0xc86fe8 : 0x7fd6ff;
+    const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map:T.glow, color:col,
+      transparent:true, opacity:node.isCurrent ? 0.5 : 0.28, depthWrite:false,
+      blending:THREE.AdditiveBlending, fog:false }));
+    const ag = s * (node.isCurrent ? 2.7 : 2.1);
+    aura.scale.set(ag, ag, 1);
+    aura.position.copy(p);
+    aura.renderOrder = 2;
+    sp.userData.aura = aura;
+    sp.userData.auraBase = aura.material.opacity;
+    starGroup.add(aura);
+
+    // a crown of orbiting motes on the current champion
+    if(node.isCurrent){
+      const M = 90, mp = new Float32Array(M * 3), mpar = new Float32Array(M * 3);
+      for(let k = 0; k < M; k++){
+        mpar[k*3] = Math.random() * 6.28;
+        mpar[k*3+1] = 1.4 + Math.random() * 1.5;
+        mpar[k*3+2] = (Math.random() - 0.5) * 2.2;
+      }
+      const mg = new THREE.BufferGeometry();
+      mg.setAttribute('position', new THREE.BufferAttribute(mp, 3));
+      const crown = new THREE.Points(mg, new THREE.PointsMaterial({ map:T.mote, size:0.34,
+        sizeAttenuation:true, transparent:true, opacity:0.95, depthWrite:false,
+        blending:THREE.AdditiveBlending, color:0xe8d98a, fog:false }));
+      crown.userData = { par:mpar, M, at:p.clone() };
+      cosmos.crown = crown;
+      starGroup.add(crown);
+    }
+  });
+
+  scene.add(linkGroup);
+  scene.add(starGroup);
+}
+
+/* ================= camera ================= */
+function applyCam(){
+  camera.position.set(
+    view.target.x + view.radius * Math.sin(view.phi) * Math.sin(view.theta),
+    view.target.y + view.radius * Math.cos(view.phi),
+    view.target.z + view.radius * Math.sin(view.phi) * Math.cos(view.theta)
+  );
+  camera.lookAt(view.target);
+}
+function flyTo(idx, silent){
+  if(!stars.length) return;
+  idx = Math.max(0, Math.min(stars.length - 1, idx));
+  focusIdx = idx;
+  const p = stars[idx].userData.base;
+  target.tx = p.x; target.ty = p.y; target.tz = p.z;
+  target.radius = 9.5;
+  target.phi = 1.28;
+  target.theta = view.theta;
+  if(!silent) sfxSelect();
+  openReign(stars[idx].userData.node, idx);
+}
+function overview(){
+  focusIdx = -1;
+  target.tx = 0; target.ty = 1.4; target.tz = 0;
+  target.radius = Math.min(52, 22 + chain.length * 3.2);
+  target.phi = 1.24;
+  closeReign();
+}
+
+/* ================= panel ================= */
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtDate(d){
+  if(!d) return '—';
+  return new Date(d).toLocaleDateString(undefined, { month:'long', day:'numeric', year:'numeric' });
+}
+function openReign(node, idx){
+  const initials = (node.wrestler_name || '?').split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+  const prev = chain[idx - 1], next = chain[idx + 1];
+  const tags = [
+    node.isCurrent ? '<span class="tag cur">Reigning</span>' : '',
+    node.isLongest ? '<span class="tag long">Longest reign</span>' : ''
+  ].join('');
+  document.getElementById('reignInner').innerHTML = `
+    <div class="r-photo">
+      ${node.photo ? `<img src="${esc(node.photo)}" alt="">` : `<div class="r-initials">${initials}</div>`}
+      <div class="r-nameblock">
+        <div class="r-num">REIGN ${idx + 1} OF ${chain.length}${activeTitle ? ' · ' + esc(activeTitle.name) : ''}</div>
+        <div class="r-name">${esc(node.wrestler_name)}</div>
+      </div>
+    </div>
+    <div class="r-body">
+      ${tags ? `<div style="margin-bottom:10px;">${tags}</div>` : ''}
+      <div class="r-grid">
+        <div class="r-stat"><div class="n">${node.days}</div><div class="l">Days held</div></div>
+        <div class="r-stat"><div class="n">${node.isCurrent ? '—' : (idx + 1)}</div><div class="l">Reign number</div></div>
+      </div>
+      <div class="r-head">Won the title</div>
+      <div class="r-line"><b>${fmtDate(node.won_date)}</b><br>
+        ${node.won_method ? 'by ' + esc(METHOD_LABEL[node.won_method] || node.won_method) : 'Method unrecorded'}
+        ${prev ? '<br>from <b>' + esc(prev.wrestler_name) + '</b>' : '<br>Inaugural champion'}</div>
+      <div class="r-head">${node.isCurrent ? 'Still reigning' : 'Lost the title'}</div>
+      <div class="r-line">${node.isCurrent
+        ? 'Holding the championship as of today.'
+        : `<b>${fmtDate(node.lost_date)}</b><br>
+           ${node.lost_method ? 'by ' + esc(METHOD_LABEL[node.lost_method] || node.lost_method) : 'Method unrecorded'}
+           ${next ? '<br>to <b>' + esc(next.wrestler_name) + '</b>' : ''}`}</div>
+    </div>`;
+  document.getElementById('reign').classList.add('open');
+  stars.forEach((s, i) => {
+    s.material.opacity = i === idx ? 1 : 0.42;
+    if(s.userData.aura) s.userData.aura.material.opacity = s.userData.auraBase * (i === idx ? 1.5 : 0.4);
+  });
+}
+function closeReign(){
+  document.getElementById('reign').classList.remove('open');
+  stars.forEach(s => {
+    s.material.opacity = 1;
+    if(s.userData.aura) s.userData.aura.material.opacity = s.userData.auraBase;
+  });
+}
+
+/* ================= interaction ================= */
+function bindControls(el){
+  let dragging = false, lx = 0, ly = 0, moved = 0;
+  const down = e => { dragging = true; moved = 0;
+    const t = e.touches ? e.touches[0] : e; lx = t.clientX; ly = t.clientY; ac(); };
+  const move = e => {
+    const t = e.touches ? e.touches[0] : e;
+    if(!dragging){ hoverTest(t); return; }
+    const dx = t.clientX - lx, dy = t.clientY - ly;
+    lx = t.clientX; ly = t.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    target.theta -= dx * 0.006;
+    target.phi = Math.max(0.3, Math.min(1.55, target.phi - dy * 0.005));
+    if(e.cancelable && e.touches) e.preventDefault();
+  };
+  const up = e => {
+    if(dragging && moved < 8){
+      const t = e.changedTouches ? e.changedTouches[0] : e;
+      if(t && t.clientX !== undefined) pick(t);
+    }
+    dragging = false;
+  };
+  el.addEventListener('mousedown', down);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  el.addEventListener('touchstart', down, { passive:true });
+  window.addEventListener('touchmove', move, { passive:false });
+  window.addEventListener('touchend', up);
+  el.addEventListener('wheel', e => {
+    target.radius = Math.max(6, Math.min(70, target.radius + e.deltaY * 0.028));
+    e.preventDefault();
+  }, { passive:false });
+  addEventListener('keydown', e => {
+    if(e.key === 'ArrowRight'){ flyTo(focusIdx < 0 ? 0 : focusIdx + 1); }
+    else if(e.key === 'ArrowLeft'){ flyTo(focusIdx < 0 ? 0 : focusIdx - 1); }
+    else if(e.key === 'Escape'){ overview(); sfxMove(360); }
+  });
+}
+function screenRay(t){
+  const rect = renderer.domElement.getBoundingClientRect();
+  const m = new THREE.Vector2(
+    ((t.clientX - rect.left) / rect.width) * 2 - 1,
+    -((t.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(m, camera);
+  return raycaster.intersectObjects(stars, false)[0];
+}
+function hoverTest(t){
+  const hit = screenRay(t);
+  const idx = hit ? hit.object.userData.idx : -1;
+  if(idx !== hoverIdx){
+    hoverIdx = idx;
+    if(idx >= 0){ sfxHover(); renderer.domElement.style.cursor = 'pointer'; }
+    else renderer.domElement.style.cursor = 'default';
+  }
+}
+function pick(t){
+  const hit = screenRay(t);
+  if(hit) flyTo(hit.object.userData.idx);
+  else { overview(); sfxMove(340); }
+}
+
+/* ================= ui ================= */
+function fillTitles(){
+  const sel = document.getElementById('fTitle');
+  sel.innerHTML = TITLES.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+  const want = qs.get('title');
+  if(want && TITLES.some(t => t.id === want)) sel.value = want;
+  sel.onchange = async () => { await selectTitle(sel.value); sfxSweep(); };
+}
+async function selectTitle(id){
+  activeTitle = TITLES.find(t => t.id === id) || TITLES[0];
+  chain = buildChain(activeTitle.id);
+  await buildConstellation();
+  overview();
+  const b = document.getElementById('emptyNote');
+  if(b) b.remove();
+  if(!chain.length){
+    const d = document.createElement('div');
+    d.className = 'ui banner'; d.id = 'emptyNote';
+    d.textContent = 'No reigns recorded for this championship yet — the sky is waiting.';
+    document.body.appendChild(d);
+  }
+}
+function bindUI(){
+  document.getElementById('bSpin').onclick = e => { drift = !drift; e.target.classList.toggle('on', drift); };
+  document.getElementById('bSound').onclick = e => {
+    soundOn = !soundOn;
+    e.target.classList.toggle('on', soundOn);
+    e.target.textContent = soundOn ? '🔊 Sound' : '🔇 Muted';
+    if(soundOn) sfxMove(600);
+  };
+  document.getElementById('bPrev').onclick = () => flyTo(focusIdx < 0 ? 0 : focusIdx - 1);
+  document.getElementById('bNext').onclick = () => flyTo(focusIdx < 0 ? 0 : focusIdx + 1);
+  document.getElementById('bReset').onclick = () => { overview(); sfxMove(360); };
+  document.getElementById('bSound').classList.toggle('on', soundOn);
+  document.getElementById('bSound').textContent = soundOn ? '🔊 Sound' : '🔇 Muted';
+}
+
+/* ================= boot ================= */
+async function init(){
+  await loadData();
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x04060e, 0.0075);
+  camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 420);
+  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  renderer.setSize(innerWidth, innerHeight);
+  document.getElementById('stage').appendChild(renderer.domElement);
+  raycaster = new THREE.Raycaster();
+
+  buildCosmos();
+  fillTitles();
+  bindUI();
+  await selectTitle(document.getElementById('fTitle').value || (TITLES[0] || {}).id);
+  applyCam();
+  bindControls(renderer.domElement);
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+  document.getElementById('loading').style.display = 'none';
+  if(isDemo){
+    const b = document.createElement('div');
+    b.className = 'ui banner';
+    b.textContent = 'Sample lineage — this fills in once titles change hands';
+    document.body.appendChild(b);
+  }
+  animate();
+}
+let t0 = performance.now(), tPrev = t0;
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const t = (now - t0) / 1000, dt = Math.min(0.05, (now - tPrev) / 1000);
+  tPrev = now;
+
+  if(drift && focusIdx < 0) target.theta += 0.0013;
+
+  // eased camera — this is what makes travelling feel good
+  const k = 1 - Math.pow(0.0016, dt);
+  view.theta += (target.theta - view.theta) * k;
+  view.phi += (target.phi - view.phi) * k;
+  view.radius += (target.radius - view.radius) * k;
+  view.target.x += (target.tx - view.target.x) * k;
+  view.target.y += (target.ty - view.target.y) * k;
+  view.target.z += (target.tz - view.target.z) * k;
+  applyCam();
+
+  stars.forEach(s => {
+    const b = s.userData.base;
+    const y = b.y + Math.sin(t * 0.85 + s.userData.phase) * 0.14;
+    s.position.set(b.x, y, b.z);
+    const a = s.userData.aura;
+    if(a){
+      a.position.set(b.x, y, b.z);
+      const pulse = 0.8 + Math.sin(t * 1.4 + s.userData.phase) * 0.3;
+      a.material.opacity = (s.userData.node.isCurrent ? s.userData.auraBase * 1.15 : s.userData.auraBase) * pulse;
+      const hs = s.userData.idx === hoverIdx ? 1.18 : 1;
+      const ag = s.userData.size * (s.userData.node.isCurrent ? 2.7 : 2.1) * hs;
+      a.scale.set(ag, ag, 1);
+    }
+    const hs = s.userData.idx === hoverIdx ? 1.1 : 1;
+    s.scale.set(s.userData.size * hs, s.userData.size * (340/256) * hs, 1);
+  });
+
+  if(linkGroup) linkGroup.children.forEach(o => {
+    if(o.userData && o.userData.curve){
+      const p = ((t * 0.22 + o.userData.offset) % 1);
+      o.position.copy(o.userData.curve.getPoint(p));
+      o.material.opacity = Math.sin(p * Math.PI) * 0.9;
+    } else if(o.material && o.isLine){
+      o.material.opacity = 0.26 + Math.sin(t * 0.9) * 0.08;
+    }
+  });
+
+  if(cosmos.crown){
+    const { par, M, at } = cosmos.crown.userData;
+    const arr = cosmos.crown.geometry.attributes.position.array;
+    for(let i = 0; i < M; i++){
+      const a = par[i*3] + t * (0.4 + par[i*3+1] * 0.2);
+      const rr = par[i*3+1];
+      arr[i*3] = at.x + Math.cos(a) * rr;
+      arr[i*3+1] = at.y + par[i*3+2] + Math.sin(t * 1.3 + par[i*3]) * 0.35;
+      arr[i*3+2] = at.z + Math.sin(a) * rr;
+    }
+    cosmos.crown.geometry.attributes.position.needsUpdate = true;
+  }
+  (cosmos.stars || []).forEach(p => p.rotation.y += p.userData.spin);
+  if(cosmos.sky) cosmos.sky.rotation.y += 0.00004;
+  if(cosmos.dust){
+    const pos = cosmos.dust.geometry.attributes.position.array;
+    const sd = cosmos.dust.userData.seed;
+    for(let i = 0; i < pos.length / 3; i++){
+      pos[i*3+1] += sd[i*3+1] * dt * 0.4;
+      if(pos[i*3+1] > 14) pos[i*3+1] = -13;
+      const a = sd[i*3] + t * 0.05;
+      pos[i*3] = Math.cos(a) * sd[i*3+2];
+      pos[i*3+2] = Math.sin(a) * sd[i*3+2];
+    }
+    cosmos.dust.geometry.attributes.position.needsUpdate = true;
+  }
+  renderer.render(scene, camera);
+}
+init();
+</script>
+</body>
+</html>
