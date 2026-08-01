@@ -1355,7 +1355,14 @@ function matchHistoryFor(id){
     }
     if(!involved || !m.resolved) continue;
     const sh = shows.find(x => x.id === m.show_id) || {};
-    out.push({ won, opp, show: sh.name || 'VWA', date: sh.date || '', type: TYPE_LABELS[m.type_key] || m.type_key, method: m.method, title: m.title_id ? (titles.find(t=>t.id===m.title_id)||{}).name : null });
+    // the method only belongs to the winner or whoever took the deciding fall
+    const multi = m.mode !== 'singles';
+    const tookFall = !multi || won || (m.decision_loser && m.decision_loser === id);
+    out.push({ won, opp, show: sh.name || 'VWA', date: sh.date || '',
+      type: TYPE_LABELS[m.type_key] || m.type_key,
+      method: tookFall ? m.method : null,
+      noFall: !won && multi && !tookFall,
+      title: m.title_id ? (titles.find(t=>t.id===m.title_id)||{}).name : null });
   }
   return out.sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 12);
 }
@@ -1424,7 +1431,7 @@ function renderWrestlerProfile(r, belts){
           <span class="hist-chip ${h.won?'w':'l'}">${h.won?'W':'L'}</span>
           <div class="hist-body">
             <div class="hist-line">vs ${esc(h.opp)}${h.title?` <span class="hist-belt">🏆 ${esc(h.title)}</span>`:''}</div>
-            <div class="hist-sub">${esc(h.show)}${h.date?' · '+new Date(h.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):''} · ${esc(h.type)}${h.method?' · '+esc(METHOD_LABELS[h.method]||h.method):''}</div>
+            <div class="hist-sub">${esc(h.show)}${h.date?' · '+new Date(h.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):''} · ${esc(h.type)}${h.method?' · '+esc(METHOD_LABELS[h.method]||h.method):''}${h.noFall?' · <span style="opacity:.75;">did not take the fall</span>':''}</div>
           </div>
         </div>`).join('') : '<div class="hist-sub" style="padding:8px 0;">No revealed matches yet — their story starts soon.</div>'}
     </div>
@@ -1470,7 +1477,7 @@ function matchLine(m){
   else if(m.mode === 'tag'){
     const win = m.winning_team==='A'?m.team_a:m.team_b, lose = m.winning_team==='A'?m.team_b:m.team_a;
     core = `<span class="winner">${(win||[]).map(nameOf).map(esc).join(' & ')}</span><span class="dim">def.</span><span>${(lose||[]).map(nameOf).map(esc).join(' & ')}</span>${method}`;
-  } else core = `<span class="winner">${esc(nameOf(m.winner))}</span><span class="dim">outlasted ${(m.participants||[]).length-1} others</span>${method}`;
+  } else core = `<span class="winner">${esc(nameOf(m.winner))}</span><span class="dim">outlasted ${(m.participants||[]).length-1} others</span>${method}${m.decision_loser?`<span class="dim">over ${esc(nameOf(m.decision_loser))}</span>`:''}`;
   return `<div class="m-line">${art}<span class="type">${type}</span>${titleFlag}${core}${starsHtml(m.id)}</div>`;
 }
 function renderResultsPage(){
