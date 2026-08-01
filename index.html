@@ -273,6 +273,43 @@
   .form-chip.l{ background:rgba(224,92,92,0.18); color:#e05c5c; }
   .nav-out{ background:none; border:none; color:var(--text-dim); font-family:'Oswald'; font-size:12.5px; letter-spacing:0.09em; text-transform:uppercase; cursor:pointer; padding:9px 14px; text-decoration:none; display:inline-block; }
   .nav-out:hover{ color:var(--gold-bright); }
+  .navgroup{ position:relative; display:inline-block; }
+  .navtop{ background:none; border:none; color:var(--text-dim); font-family:'Oswald'; font-size:12.5px;
+    letter-spacing:0.09em; text-transform:uppercase; cursor:pointer; padding:9px 14px; }
+  .navtop:hover, .navgroup.open .navtop{ color:var(--gold-bright); }
+  .caret{ font-size:9px; opacity:0.7; }
+  .navmenu{ position:absolute; top:100%; left:6px; min-width:196px; z-index:60;
+    background:var(--panel); border:1px solid var(--border); border-radius:11px; padding:6px;
+    display:none; box-shadow:0 16px 44px rgba(0,0,0,0.55); }
+  .navgroup.open .navmenu{ display:block; }
+  .navmenu button, .navmenu a{ display:flex; align-items:center; gap:7px; width:100%; text-align:left;
+    background:none; border:none; color:var(--text-dim); font-family:'Oswald'; font-size:12.5px;
+    letter-spacing:0.05em; padding:9px 11px; border-radius:7px; cursor:pointer; text-decoration:none; }
+  .navmenu button:hover, .navmenu a:hover{ background:rgba(155,109,255,0.12); color:var(--gold-bright); }
+  .navsearch{ margin-left:auto; display:flex; align-items:center; gap:8px; background:var(--panel-3);
+    border:1px solid var(--border); color:var(--text-dim); font-family:'Oswald'; font-size:11.5px;
+    letter-spacing:0.08em; text-transform:uppercase; padding:7px 12px; border-radius:8px; cursor:pointer; }
+  .navsearch:hover{ border-color:var(--gold); color:var(--gold-bright); }
+  kbd{ font-family:'JetBrains Mono'; font-size:10px; background:rgba(255,255,255,0.07);
+    border:1px solid var(--border); border-radius:4px; padding:1px 5px; color:var(--text-dim); }
+  .palette{ position:fixed; inset:0; z-index:300; background:rgba(6,5,12,0.72); display:none;
+    align-items:flex-start; justify-content:center; padding-top:14vh; backdrop-filter:blur(4px); }
+  .palette.open{ display:flex; }
+  .pal-box{ width:min(600px, 92vw); background:var(--panel); border:1px solid var(--gold);
+    border-radius:14px; overflow:hidden; box-shadow:0 26px 70px rgba(0,0,0,0.6); }
+  #palInput{ width:100%; background:transparent; border:none; outline:none; color:var(--canvas);
+    font-family:'Oswald'; font-size:17px; padding:17px 20px; letter-spacing:0.03em; }
+  .pal-results{ max-height:52vh; overflow-y:auto; border-top:1px solid var(--panel-3); }
+  .pal-item{ display:flex; align-items:center; gap:11px; padding:11px 18px; cursor:pointer; }
+  .pal-item.sel{ background:rgba(155,109,255,0.14); }
+  .pal-ico{ width:26px; height:26px; border-radius:7px; background:var(--panel-3); display:flex;
+    align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+  .pal-name{ color:var(--canvas); font-size:14px; }
+  .pal-sub{ font-size:11px; color:var(--text-dim); margin-left:auto; text-transform:uppercase; letter-spacing:0.08em; }
+  .pal-foot{ padding:9px 18px; border-top:1px solid var(--panel-3); font-size:10.5px; color:var(--text-dim);
+    display:flex; gap:6px; align-items:center; }
+  .pal-empty{ padding:26px 18px; text-align:center; color:var(--text-dim); font-size:13px; }
+  @media(max-width:760px){ .navsearch span{ display:none; } .navmenu{ left:0; } }
 </style>
 </head>
 <body>
@@ -293,19 +330,51 @@
   <img class="hero-watermark" id="heroWatermark" alt="" style="display:none;">
 </header>
 
-<nav class="tabs">
+<nav class="tabs" id="mainNav">
   <button data-page="home" class="active" onclick="go('home')">Home</button>
-  <button data-page="upcoming" onclick="go('upcoming')">Upcoming</button>
-  <button data-page="watch" onclick="go('watch')" id="watchNavBtn">Watch<span class="live-dot" id="liveDot" style="display:none;"></span></button>
+
+  <div class="navgroup" data-group="shows">
+    <button class="navtop" onclick="toggleGroup(event,'shows')">Shows <span class="caret">▾</span></button>
+    <div class="navmenu">
+      <button onclick="go('upcoming')">Upcoming Cards</button>
+      <button onclick="go('results')">Results Archive</button>
+      <button onclick="go('watch')">Watch Live<span class="live-dot" id="liveDot" style="display:none;"></span></button>
+    </div>
+  </div>
+
+  <div class="navgroup" data-group="roster">
+    <button class="navtop" onclick="toggleGroup(event,'roster')">Roster <span class="caret">▾</span></button>
+    <div class="navmenu">
+      <button onclick="go('roster')">Wrestler Profiles</button>
+      <button onclick="go('champions')">Championships</button>
+      <a href="lineage.html">The Lineage ↗</a>
+      <a href="pyramid.html">The Climb ↗</a>
+    </div>
+  </div>
+
+  <div class="navgroup" data-group="play">
+    <button class="navtop" onclick="toggleGroup(event,'play')">Play <span class="caret">▾</span></button>
+    <div class="navmenu">
+      <button onclick="go('predictions')">Predictions</button>
+      <button onclick="go('leaderboard')">Leaderboard</button>
+      <button onclick="go('account')">My Account</button>
+    </div>
+  </div>
+
   <button data-page="news" onclick="go('news')">Storylines</button>
-  <a class="nav-out" href="pyramid.html">The Climb</a>
-  <button data-page="predictions" onclick="go('predictions')">Predictions</button>
-  <button data-page="leaderboard" onclick="go('leaderboard')">Leaderboard</button>
-  <button data-page="roster" onclick="go('roster')">Roster</button>
-  <button data-page="champions" onclick="go('champions')">Championships</button>
-  <button data-page="results" onclick="go('results')">Results</button>
-  <button data-page="account" onclick="go('account')">My Account</button>
+
+  <button class="navsearch" onclick="openPalette()" title="Search — press / or Ctrl+K">
+    <span>Search</span><kbd>/</kbd>
+  </button>
 </nav>
+
+<div class="palette" id="palette" onclick="if(event.target===this) closePalette()">
+  <div class="pal-box">
+    <input id="palInput" placeholder="Jump to a wrestler, show, title or page…" autocomplete="off">
+    <div class="pal-results" id="palResults"></div>
+    <div class="pal-foot"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>↵</kbd> open · <kbd>esc</kbd> close</div>
+  </div>
+</div>
 
 <main>
   <div class="page active" id="page-home">
@@ -456,6 +525,7 @@ function nameOf(id){ const r = records.find(x => x.wrestler_id === id); return r
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(window._t); window._t=setTimeout(()=>t.classList.remove('show'),3200); }
 function cleanErr(m){ return String(m||'Something went wrong').replace(/^.*?:\s*/, ''); }
 function go(page){
+  document.querySelectorAll('.navgroup').forEach(x => x.classList.remove('open'));
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
   window.scrollTo({ top:0, behavior:'smooth' });
@@ -1319,6 +1389,116 @@ function renderHomeNews(){
   el.innerHTML = latest.length ? latest.map(p => newsCardHtml(p, true)).join('')
     : '<div class="empty" style="grid-column:1/-1;">News drops here between shows.</div>';
 }
+
+/* ---------------- nav groups + command palette ---------------- */
+function toggleGroup(e, key){
+  e.stopPropagation();
+  const g = document.querySelector(`.navgroup[data-group="${key}"]`);
+  const wasOpen = g.classList.contains('open');
+  document.querySelectorAll('.navgroup').forEach(x => x.classList.remove('open'));
+  if(!wasOpen) g.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if(!e.target.closest('.navgroup')) document.querySelectorAll('.navgroup').forEach(x => x.classList.remove('open'));
+});
+
+const PAGE_ENTRIES = [
+  { n:'Home',            p:'home',        i:'🏠' },
+  { n:'Upcoming Cards',  p:'upcoming',    i:'📋' },
+  { n:'Results Archive', p:'results',     i:'📜' },
+  { n:'Watch Live',      p:'watch',       i:'📺' },
+  { n:'Wrestler Profiles',p:'roster',     i:'👤' },
+  { n:'Championships',   p:'champions',   i:'🏆' },
+  { n:'Predictions',     p:'predictions', i:'🎲' },
+  { n:'Leaderboard',     p:'leaderboard', i:'📊' },
+  { n:'Storylines',      p:'news',        i:'📰' },
+  { n:'My Account',      p:'account',     i:'⚙️' },
+  { n:'The Climb — rankings pyramid', url:'pyramid.html',  i:'▲' },
+  { n:'The Lineage — title constellation', url:'lineage.html', i:'✦' }
+];
+let palItems = [], palSel = 0;
+
+function paletteSource(){
+  const out = PAGE_ENTRIES.map(e => ({ ...e, kind:'Page' }));
+  records.forEach(r => out.push({ n:r.name, kind:'Wrestler', i:'👤', p:'roster', wid:r.wrestler_id }));
+  titles.forEach(t => out.push({ n:t.name, kind:'Title', i:'🏆', p:'champions' }));
+  shows.forEach(s => out.push({ n:s.name, kind:'Show', i:'📋', p: isUpcoming(s) ? 'upcoming' : 'results' }));
+  newsPosts.forEach(p => { if(p.title) out.push({ n:p.title, kind:'Story', i:'📰', p:'news' }); });
+  return out;
+}
+function scoreMatch(hay, q){
+  const h = hay.toLowerCase();
+  if(h === q) return 100;
+  if(h.startsWith(q)) return 80;
+  const w = h.split(/\s+/);
+  if(w.some(x => x.startsWith(q))) return 60;
+  if(h.includes(q)) return 40;
+  // loose subsequence match, so "mgvk" finds "Magnus Volkov"
+  let i = 0;
+  for(const c of h){ if(c === q[i]) i++; if(i === q.length) return 18; }
+  return 0;
+}
+function renderPalette(){
+  const el = document.getElementById('palResults');
+  if(!palItems.length){
+    el.innerHTML = '<div class="pal-empty">Nothing matches that.</div>';
+    return;
+  }
+  el.innerHTML = palItems.map((it, i) => `
+    <div class="pal-item ${i===palSel?'sel':''}" onclick="runPalette(${i})" onmousemove="palHover(${i})">
+      <span class="pal-ico">${it.i || '•'}</span>
+      <span class="pal-name">${esc(it.n)}</span>
+      <span class="pal-sub">${esc(it.kind)}</span>
+    </div>`).join('');
+  const sel = el.querySelector('.pal-item.sel');
+  if(sel) sel.scrollIntoView({ block:'nearest' });
+}
+function palHover(i){ palSel = i; renderPalette(); }
+function filterPalette(q){
+  q = (q || '').trim().toLowerCase();
+  const src = paletteSource();
+  if(!q){ palItems = src.filter(x => x.kind === 'Page').slice(0, 12); }
+  else {
+    palItems = src.map(x => ({ x, s: scoreMatch(x.n, q) }))
+      .filter(o => o.s > 0)
+      .sort((a, b) => b.s - a.s || a.x.n.length - b.x.n.length)
+      .slice(0, 14).map(o => o.x);
+  }
+  palSel = 0;
+  renderPalette();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('palInput');
+  if(inp) inp.oninput = e => filterPalette(e.target.value);
+});
+function openPalette(){
+  document.getElementById('palette').classList.add('open');
+  const inp = document.getElementById('palInput');
+  inp.value = '';
+  filterPalette('');
+  setTimeout(() => inp.focus(), 30);
+}
+function closePalette(){ document.getElementById('palette').classList.remove('open'); }
+function runPalette(i){
+  const it = palItems[i];
+  if(!it) return;
+  closePalette();
+  if(it.url){ location.href = it.url; return; }
+  go(it.p);
+  if(it.wid){ selectedWrestlerId = it.wid; renderRosterPage(); }
+}
+document.addEventListener('keydown', e => {
+  const open = document.getElementById('palette').classList.contains('open');
+  const typing = ['INPUT','TEXTAREA'].includes((e.target.tagName || '').toUpperCase());
+  if(!open && ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'))){
+    e.preventDefault(); openPalette(); return;
+  }
+  if(!open) return;
+  if(e.key === 'Escape'){ closePalette(); }
+  else if(e.key === 'ArrowDown'){ e.preventDefault(); palSel = Math.min(palItems.length-1, palSel+1); renderPalette(); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); palSel = Math.max(0, palSel-1); renderPalette(); }
+  else if(e.key === 'Enter'){ e.preventDefault(); runPalette(palSel); }
+});
 
 function renderAll(){
   renderHome(); renderUpcoming(); renderBets(); renderLeaderboard();
