@@ -914,7 +914,9 @@ async function claimDaily(){
 
 /* ---------------- DATA ---------------- */
 async function loadAll(){
-  const [r, m, c, s, sm, t, th, p, rt, lb, ec] = await Promise.all([
+  /* allSettled, not all: one missing view or a server hiccup must not
+     take down the whole page. Whatever loads, renders. */
+  const q = [
     db.from('v_records').select('*'),
     db.from('v_method_breakdown').select('*'),
     db.from('v_current_champions').select('*'),
@@ -926,12 +928,20 @@ async function loadAll(){
     db.from('v_match_ratings').select('*'),
     db.from('v_leaderboard').select('*').order('balance', { ascending:false }).limit(100),
     db.from('site_settings').select('*').eq('key','economy').maybeSingle()
-  ]);
-  records = r.data || []; methods = m.data || []; champions = c.data || [];
-  shows = s.data || []; showMatches = sm.data || []; titles = t.data || []; titleHistory = th.data || [];
-  pools = p.data || []; ratings = rt.data || []; leaderboard = lb.data || [];
-  if(ec.data && ec.data.value) economy = Object.assign(economy, ec.data.value);
-  await loadFanData();
+  ];
+  const res = await Promise.allSettled(q);
+  const pick = i => (res[i].status === 'fulfilled' && res[i].value && res[i].value.data) || null;
+  const failed = res.filter(x => x.status === 'rejected' ||
+    (x.value && x.value.error)).length;
+
+  records = pick(0) || []; methods = pick(1) || []; champions = pick(2) || [];
+  shows = pick(3) || []; showMatches = pick(4) || []; titles = pick(5) || []; titleHistory = pick(6) || [];
+  pools = pick(7) || []; ratings = pick(8) || []; leaderboard = pick(9) || [];
+  const ec = pick(10);
+  if(ec && ec.value) economy = Object.assign(economy, ec.value);
+
+  if(failed === q.length) throw new Error('all queries failed');
+  try{ await loadFanData(); }catch(e){ myBets = []; myRatings = []; }
 }
 async function loadFanData(){
   if(!me){ myBets = []; myRatings = []; return; }
@@ -1789,23 +1799,47 @@ db.auth.onAuthStateChange(async (event) => {
   }
 });
 
-(async function init(){
-  loadStreamCfg();
-  loadBranding();
-  loadNews();
-  loadWrestlerBios().then(() => renderRosterPage());
-  await refreshUser();
-  await loadAll();
-  renderAll();
+function dismissBoot(){
   const boot = document.getElementById('bootScreen');
-  if(boot) setTimeout(() => boot.classList.add('gone'), 260);
+  if(boot && !boot.classList.contains('gone')) boot.classList.add('gone');
+}
+/* Hard safety net: the site must never sit behind the loader, even if
+   the database is unreachable. */
+setTimeout(dismissBoot, 6000);
+window.addEventListener('error', dismissBoot);
+
+(async function init(){
+  // fire-and-forget loaders — a failure here can't block the page
+  try{ loadStreamCfg(); }catch(e){ console.warn('stream cfg', e); }
+  try{ loadBranding(); }catch(e){ console.warn('branding', e); }
+  try{ loadNews(); }catch(e){ console.warn('news', e); }
+  try{ loadWrestlerBios().then(() => renderRosterPage()).catch(()=>{}); }catch(e){}
+
+  try{
+    await refreshUser();
+  }catch(e){ console.warn('auth unavailable', e); }
+
+  try{
+    await loadAll();
+  }catch(e){
+    console.warn('data load failed', e);
+    toast('Could not reach the server — showing what we have.');
+  }
+
+  try{ renderAll(); }catch(e){ console.warn('render', e); }
+  finally{ setTimeout(dismissBoot, 200); }
+
   // Odds shift live as fans place bets
-  db.channel('vwa-bets')
-    .on('postgres_changes', { event:'*', schema:'public', table:'bets' }, async () => {
-      await refreshBetting();
-      renderBets(); renderHome(); renderLeaderboard(); renderAccountBar();
-    })
-    .subscribe();
+  try{
+    db.channel('vwa-bets')
+      .on('postgres_changes', { event:'*', schema:'public', table:'bets' }, async () => {
+        try{
+          await refreshBetting();
+          renderBets(); renderHome(); renderLeaderboard(); renderAccountBar();
+        }catch(e){}
+      })
+      .subscribe();
+  }catch(e){ console.warn('realtime unavailable', e); }
 })();
 </script>
 </body>
