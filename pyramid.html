@@ -299,7 +299,9 @@ function thRgba(c,a){ const x=thHx(c); return `rgba(${x.r},${x.g},${x.b},${a})`;
 
 /* Each theme is five colours plus optional behaviour.
    Everything else — sky, stars, auras, beam, UI — is derived from these. */
+const VWA_LOGO = 'https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/craiyon_174442_image.png';
 const THEME_DEFS = {
+  vwa:         { label:'VWA Brand',      void:'#0a040c', deep:'#2a0620', p:'#ff3f9e', s:'#8a1050', a:'#e8c26a' },
   cosmos:      { label:'Royal Cosmos',   void:'#06040c', deep:'#150d28', p:'#9b6dff', s:'#b8459b', a:'#e0b45c' },
   inferno:     { label:'Inferno',        void:'#0a0301', deep:'#2a0e06', p:'#ff6b2b', s:'#c41f0c', a:'#ffd27a', rise:1.7, fogD:0.0095 },
   abyss:       { label:'Abyss',          void:'#01080f', deep:'#06212e', p:'#2ec7c7', s:'#1b5fa8', a:'#9dfbe0', rise:0.5,  fogD:0.014 },
@@ -669,6 +671,15 @@ function buildPyramid(){
     pyramidGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), ringMat));
   }
 
+  // brand crest hovering over the vacant throne
+  const crestTex = new THREE.TextureLoader().load(VWA_LOGO);
+  const crest = new THREE.Sprite(new THREE.SpriteMaterial({ map:crestTex, transparent:true,
+    opacity:0.92, depthWrite:false, fog:false }));
+  crest.scale.set(7, 7, 1);
+  crest.position.set(0, H_PYR + 7.4, 0);
+  crest.name = 'crest';
+  pyramidGroup.add(crest);
+
   const spark = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 16),
     new THREE.MeshBasicMaterial({ color:TH.apex, transparent:true, opacity:0.9 }));
   spark.position.copy(apex);
@@ -920,7 +931,7 @@ function setCssVars(){
 }
 async function applyTheme(key, custom){
   themeKey = custom ? 'custom' : key;
-  TH = custom ? custom : buildTheme(Object.assign({ key }, THEME_DEFS[key] || THEME_DEFS.cosmos));
+  TH = custom ? custom : buildTheme(Object.assign({ key }, THEME_DEFS[key] || THEME_DEFS.vwa));
   setCssVars();
   if(!scene) return;
 
@@ -1003,8 +1014,8 @@ function fillThemes(){
 async function init(){
   let saved = qs.get('theme');
   if(!saved){ try{ saved = localStorage.getItem('vwa_pyr_theme'); }catch(e){} }
-  themeKey = (saved && (THEME_DEFS[saved] || saved === 'custom')) ? saved : 'cosmos';
-  TH = buildTheme(Object.assign({ key:themeKey }, THEME_DEFS[themeKey] || THEME_DEFS.cosmos));
+  themeKey = (saved && (THEME_DEFS[saved] || saved === 'custom')) ? saved : 'vwa';
+  TH = buildTheme(Object.assign({ key:themeKey }, THEME_DEFS[themeKey] || THEME_DEFS.vwa));
   setCssVars();
 
   await loadData();
@@ -1092,6 +1103,11 @@ function animate(){
   updateHelixDust(t);
 
   // the vacant throne
+  const crest = pyramidGroup.getObjectByName('crest');
+  if(crest){
+    crest.position.y = H_PYR + 7.4 + Math.sin(t * 0.6) * 0.32;
+    crest.material.opacity = 0.80 + Math.sin(t * 1.1) * 0.14;
+  }
   const apex = pyramidGroup.getObjectByName('apex');
   const halo = pyramidGroup.getObjectByName('halo');
   if(apex) apex.material.opacity = 0.65 + Math.sin(t*2)*0.3;
