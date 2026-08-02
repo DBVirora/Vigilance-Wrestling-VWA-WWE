@@ -103,6 +103,30 @@
   .custom-card input[type=color]{ width:42px; height:26px; border:1px solid var(--border); border-radius:6px;
     background:transparent; cursor:pointer; padding:2px; }
   #fTheme{ max-width:170px; }
+
+  .backbtn{ position:fixed; left:18px; top:74px; z-index:30; display:flex; align-items:center; gap:9px;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:8px 14px 8px 11px;
+    color:var(--text); text-decoration:none; font-family:'Oswald'; font-size:11.5px;
+    letter-spacing:0.09em; text-transform:uppercase; backdrop-filter:blur(9px);
+    transition:border-color .16s, transform .16s; }
+  .backbtn:hover{ border-color:var(--a, #e8c26a); transform:translateX(-2px); }
+  .backbtn img{ height:26px; width:auto; }
+  .backbtn .arrow{ font-size:14px; opacity:0.85; }
+  .musicbar{ position:fixed; right:18px; bottom:62px; z-index:30;
+    display:flex; align-items:center; gap:8px; }
+  .musicbtn{ display:flex; align-items:center; gap:9px; background:var(--panel);
+    border:1px solid var(--border); border-radius:22px; padding:8px 16px; cursor:pointer;
+    color:var(--dim); font-family:'Oswald'; font-size:11px; letter-spacing:0.09em;
+    text-transform:uppercase; backdrop-filter:blur(9px); transition:border-color .16s, color .16s; }
+  .musicbtn:hover{ border-color:var(--a, #e8c26a); color:var(--text); }
+  .musicbtn.on{ color:var(--text); }
+  .eq{ display:inline-flex; align-items:flex-end; gap:2px; height:13px; }
+  .eq i{ width:3px; height:4px; border-radius:1px; background:currentColor; opacity:0.35; }
+  .eq.live i{ opacity:0.95; animation:eqBounce 0.9s ease-in-out infinite; }
+  .eq.live i:nth-child(2){ animation-delay:0.15s; }
+  .eq.live i:nth-child(3){ animation-delay:0.3s; }
+  @keyframes eqBounce{ 0%,100%{ height:4px; } 50%{ height:13px; } }
+  @media(max-width:700px){ .mus-lbl{ display:none; } .backbtn span:not(.arrow){ display:none; } }
 </style>
 </head>
 <body>
@@ -148,6 +172,12 @@
   <button class="btn" id="bRandomTheme" style="width:100%; margin-top:8px;">🎲 Surprise me</button>
 </div>
 
+<a class="ui backbtn" href="index.html" title="Back to the VWA site">
+  <span class="arrow">←</span><img src="https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/craiyon_174442_image.png" alt=""><span>VWA Home</span>
+</a>
+<div class="ui musicbar">
+  <button class="musicbtn on" id="bMusic" onclick="toggleMusic()">🎵<span class="mus-lbl">Music on</span><span class="eq"><i></i><i></i><i></i></span></button>
+</div>
 <div class="ui hint-drag">Drag to orbit · scroll to zoom · click a node</div>
 <div class="loading" id="loading">ASCENDING…</div>
 
@@ -1010,6 +1040,68 @@ function fillThemes(){
   };
 }
 
+
+/* ---------------- background music ---------------- */
+const VWA_MUSIC_URL = 'https://github.com/DBVirora/Vigilance-Wrestling-VWA-WWE/raw/refs/heads/main/images%20folder/X-Men%20Legends%20OST%20101%20-%20Menu.mp3';
+let bgm = null, bgmMuted = false, bgmStarted = false;
+
+function initMusic(){
+  try{ bgmMuted = localStorage.getItem('vwa_bgm_muted') === '1'; }catch(e){}
+  bgm = new Audio(VWA_MUSIC_URL);
+  bgm.loop = true;
+  bgm.preload = 'auto';
+  bgm.volume = 0;
+  bgm.crossOrigin = 'anonymous';
+
+  const fadeIn = () => {
+    const target = bgmMuted ? 0 : 0.34;
+    let v = bgm.volume;
+    const step = () => {
+      v = Math.min(target, v + 0.012);
+      bgm.volume = v;
+      if(v < target) requestAnimationFrame(step);
+    };
+    step();
+  };
+  const tryPlay = () => {
+    if(bgmStarted) return;
+    bgm.play().then(() => { bgmStarted = true; fadeIn(); syncMusicBtn(); })
+      .catch(() => { /* browser blocked it — wait for a gesture */ });
+  };
+  tryPlay();
+  // browsers require a gesture before audio; catch the first one
+  const kick = () => {
+    tryPlay();
+    if(bgmStarted){
+      ['pointerdown','keydown','touchstart','wheel'].forEach(ev =>
+        window.removeEventListener(ev, kick));
+    }
+  };
+  ['pointerdown','keydown','touchstart','wheel'].forEach(ev =>
+    window.addEventListener(ev, kick, { passive:true }));
+
+  // some browsers stall the loop on long buffers — belt and braces
+  bgm.addEventListener('ended', () => { bgm.currentTime = 0; bgm.play().catch(()=>{}); });
+  syncMusicBtn();
+}
+function toggleMusic(){
+  bgmMuted = !bgmMuted;
+  if(bgm){
+    bgm.volume = bgmMuted ? 0 : 0.34;
+    if(!bgmMuted && !bgmStarted) bgm.play().then(()=>{ bgmStarted = true; }).catch(()=>{});
+  }
+  try{ localStorage.setItem('vwa_bgm_muted', bgmMuted ? '1' : '0'); }catch(e){}
+  syncMusicBtn();
+}
+function syncMusicBtn(){
+  const b = document.getElementById('bMusic');
+  if(!b) return;
+  b.classList.toggle('on', !bgmMuted);
+  b.innerHTML = (bgmMuted ? '🔇' : '🎵') + '<span class="mus-lbl">' +
+    (bgmMuted ? 'Music off' : (bgmStarted ? 'Music on' : 'Tap to play')) + '</span>' +
+    '<span class="eq ' + (!bgmMuted && bgmStarted ? 'live' : '') + '"><i></i><i></i><i></i></span>';
+}
+
 /* ---------------- boot ---------------- */
 async function init(){
   let saved = qs.get('theme');
@@ -1045,6 +1137,7 @@ async function init(){
   });
 
   document.getElementById('loading').style.display = 'none';
+  initMusic();
   if(isDemo){
     const b = document.createElement('div');
     b.className = 'ui banner';
