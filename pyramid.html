@@ -1042,64 +1042,79 @@ function fillThemes(){
 
 
 /* ---------------- background music ---------------- */
-const VWA_MUSIC_URL = 'https://github.com/DBVirora/Vigilance-Wrestling-VWA-WWE/raw/refs/heads/main/images%20folder/X-Men%20Legends%20OST%20101%20-%20Menu.mp3';
-let bgm = null, bgmMuted = false, bgmStarted = false;
+const VWA_MUSIC_URL = 'https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/X-Men%20Legends%20OST%20101%20-%20Menu.mp3';
+let bgm = null, bgmMuted = false, bgmStarted = false, bgmState = 'loading';
 
 function initMusic(){
   try{ bgmMuted = localStorage.getItem('vwa_bgm_muted') === '1'; }catch(e){}
-  bgm = new Audio(VWA_MUSIC_URL);
+  bgm = new Audio();
   bgm.loop = true;
   bgm.preload = 'auto';
-  bgm.volume = 0;
-  bgm.crossOrigin = 'anonymous';
+  bgm.volume = bgmMuted ? 0 : 0.34;   // no fade dependency — audible the moment it plays
+  bgm.src = VWA_MUSIC_URL;            // no crossOrigin: plain playback doesn't need it
 
-  const fadeIn = () => {
-    const target = bgmMuted ? 0 : 0.34;
-    let v = bgm.volume;
-    const step = () => {
-      v = Math.min(target, v + 0.012);
-      bgm.volume = v;
-      if(v < target) requestAnimationFrame(step);
-    };
-    step();
-  };
-  const tryPlay = () => {
-    if(bgmStarted) return;
-    bgm.play().then(() => { bgmStarted = true; fadeIn(); syncMusicBtn(); })
-      .catch(() => { /* browser blocked it — wait for a gesture */ });
-  };
-  tryPlay();
-  // browsers require a gesture before audio; catch the first one
+  bgm.addEventListener('canplay',  () => { if(bgmState === 'loading'){ bgmState = 'ready'; syncMusicBtn(); } });
+  bgm.addEventListener('playing',  () => { bgmStarted = true; bgmState = 'playing'; syncMusicBtn(); });
+  bgm.addEventListener('pause',    () => { if(bgmState === 'playing'){ bgmState = 'ready'; syncMusicBtn(); } });
+  bgm.addEventListener('error',    () => { bgmState = 'error'; syncMusicBtn(); });
+  bgm.addEventListener('stalled',  () => { if(!bgmStarted){ bgmState = 'ready'; syncMusicBtn(); } });
+  // hard loop guarantee
+  bgm.addEventListener('ended', () => { bgm.currentTime = 0; bgm.play().catch(()=>{}); });
+
+  bgm.load();
+  attemptPlay();
+
+  /* Browsers block audio until the visitor interacts. Catch the first
+     gesture anywhere on the page and start then. */
   const kick = () => {
-    tryPlay();
-    if(bgmStarted){
-      ['pointerdown','keydown','touchstart','wheel'].forEach(ev =>
-        window.removeEventListener(ev, kick));
-    }
+    if(bgmStarted || bgmMuted) return;
+    attemptPlay();
   };
-  ['pointerdown','keydown','touchstart','wheel'].forEach(ev =>
+  ['pointerdown','keydown','touchstart','wheel','click'].forEach(ev =>
     window.addEventListener(ev, kick, { passive:true }));
 
-  // some browsers stall the loop on long buffers — belt and braces
-  bgm.addEventListener('ended', () => { bgm.currentTime = 0; bgm.play().catch(()=>{}); });
+  document.addEventListener('visibilitychange', () => {
+    if(!bgm) return;
+    if(document.hidden) bgm.pause();
+    else if(bgmStarted && !bgmMuted) bgm.play().catch(()=>{});
+  });
   syncMusicBtn();
 }
+function attemptPlay(){
+  if(!bgm || bgmMuted) return;
+  const p = bgm.play();
+  if(p && p.catch) p.catch(() => { bgmState = 'blocked'; syncMusicBtn(); });
+}
+/* One button, three jobs: start it if blocked, otherwise mute/unmute. */
 function toggleMusic(){
-  bgmMuted = !bgmMuted;
-  if(bgm){
-    bgm.volume = bgmMuted ? 0 : 0.34;
-    if(!bgmMuted && !bgmStarted) bgm.play().then(()=>{ bgmStarted = true; }).catch(()=>{});
+  if(!bgm) return;
+  if(!bgmStarted){
+    bgmMuted = false;
+    bgm.volume = 0.34;
+    try{ localStorage.setItem('vwa_bgm_muted','0'); }catch(e){}
+    const p = bgm.play();
+    if(p && p.catch) p.catch(err => { bgmState = 'error'; syncMusicBtn(); });
+    syncMusicBtn();
+    return;
   }
+  bgmMuted = !bgmMuted;
+  bgm.volume = bgmMuted ? 0 : 0.34;
+  if(bgmMuted) bgm.pause(); else bgm.play().catch(()=>{});
   try{ localStorage.setItem('vwa_bgm_muted', bgmMuted ? '1' : '0'); }catch(e){}
   syncMusicBtn();
 }
 function syncMusicBtn(){
   const b = document.getElementById('bMusic');
   if(!b) return;
-  b.classList.toggle('on', !bgmMuted);
-  b.innerHTML = (bgmMuted ? '🔇' : '🎵') + '<span class="mus-lbl">' +
-    (bgmMuted ? 'Music off' : (bgmStarted ? 'Music on' : 'Tap to play')) + '</span>' +
-    '<span class="eq ' + (!bgmMuted && bgmStarted ? 'live' : '') + '"><i></i><i></i><i></i></span>';
+  let icon = '🎵', label = 'Music on', live = false;
+  if(bgmState === 'error'){ icon = '⚠️'; label = 'Audio unavailable'; }
+  else if(bgmMuted){ icon = '🔇'; label = 'Music off'; }
+  else if(bgmStarted){ icon = '🎵'; label = 'Music on'; live = true; }
+  else if(bgmState === 'blocked'){ icon = '▶'; label = 'Play music'; }
+  else { icon = '▶'; label = 'Play music'; }
+  b.classList.toggle('on', live);
+  b.innerHTML = icon + '<span class="mus-lbl">' + label + '</span>' +
+    '<span class="eq ' + (live ? 'live' : '') + '"><i></i><i></i><i></i></span>';
 }
 
 /* ---------------- boot ---------------- */
