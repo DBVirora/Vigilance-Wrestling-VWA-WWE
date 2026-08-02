@@ -499,6 +499,91 @@
   /* the standings-style rows fill the width like the reference */
   .lb-card{ padding:14px 16px; }
   .lb-row{ padding:8px 2px; }
+
+  /* ============ RESULT CARDS ============ */
+  .result-card{ display:flex; align-items:stretch; gap:14px; background:var(--panel);
+    border:1px solid var(--border); border-left:3px solid var(--teal); border-radius:12px;
+    padding:12px 16px; margin-bottom:10px; transition:border-color .18s, transform .18s, box-shadow .18s; }
+  .result-card:hover{ transform:translateY(-2px); box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    border-color:rgba(214,45,140,0.45); }
+  .result-card.upcoming{ border-left-color:var(--gold); }
+  .rc-art{ width:74px; height:74px; object-fit:cover; border-radius:9px; border:1px solid var(--border);
+    cursor:zoom-in; align-self:center; flex-shrink:0; transition:transform .16s; }
+  .rc-art:hover{ transform:scale(1.06); border-color:var(--gold); }
+  .rc-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:9px; }
+  .rc-top{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .rc-type{ font-family:'Oswald'; font-size:9.5px; letter-spacing:0.13em; text-transform:uppercase;
+    background:rgba(214,45,140,0.14); color:var(--gold-bright); padding:3px 9px; border-radius:11px; }
+  .rc-belt{ font-family:'Oswald'; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase;
+    background:rgba(224,180,92,0.15); color:var(--amber); padding:3px 9px; border-radius:11px; }
+  .rc-pill{ font-family:'Oswald'; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase;
+    padding:3px 9px; border-radius:11px; margin-left:auto; }
+  .rc-pill.pending{ background:rgba(224,180,92,0.16); color:var(--amber); }
+  .rc-pill.live{ background:rgba(62,142,130,0.18); color:var(--teal); }
+  .rc-stars{ margin-left:auto; }
+
+  .rc-bout{ display:flex; align-items:center; gap:clamp(10px, 2vw, 28px); }
+  .fc{ display:flex; align-items:center; gap:10px; cursor:pointer; min-width:0; }
+  .fc.r{ flex-direction:row-reverse; text-align:right; }
+  .fc-photo{ position:relative; width:52px; height:52px; border-radius:50%; overflow:hidden;
+    flex-shrink:0; border:2px solid var(--panel-3); background:var(--panel-3);
+    display:flex; align-items:center; justify-content:center; transition:transform .18s, border-color .18s; }
+  .fc:hover .fc-photo{ transform:scale(1.08); }
+  .fc-photo img{ width:100%; height:100%; object-fit:cover; object-position:top; }
+  .fc-ini{ font-family:'Oswald'; font-size:17px; color:var(--text-dim); }
+  .fc-mark{ position:absolute; right:-2px; bottom:-2px; width:19px; height:19px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;
+    border:2px solid var(--panel); }
+  .fc-name{ font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; letter-spacing:0.02em; }
+
+  /* winner */
+  .fc.win .fc-photo{ border-color:#3fbf8f; box-shadow:0 0 0 3px rgba(63,191,143,0.18), 0 0 18px rgba(63,191,143,0.35); }
+  .fc.win .fc-photo img{ filter:saturate(1.15) brightness(1.06); }
+  .fc.win .fc-photo::after{ content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(63,191,143,0.06), rgba(63,191,143,0.30)); }
+  .fc.win .fc-mark{ background:#3fbf8f; color:#04170f; }
+  .fc.win .fc-name{ color:#7ee0b8; }
+  /* loser */
+  .fc.loss .fc-photo{ border-color:#c2455a; }
+  .fc.loss .fc-photo img{ filter:saturate(0.35) brightness(0.72) contrast(0.95); }
+  .fc.loss .fc-photo::after{ content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(194,69,90,0.14), rgba(194,69,90,0.42)); }
+  .fc.loss .fc-mark{ background:#c2455a; color:#fff; }
+  .fc.loss .fc-name{ color:#a8929a; }
+  .fc.loss:hover .fc-photo img{ filter:saturate(0.8) brightness(0.95); }
+  /* not yet decided */
+  .fc.tbd .fc-photo{ border-color:var(--border); }
+  .fc.tbd .fc-name{ color:var(--canvas); }
+  .fc.tbd .fc-mark{ display:none; }
+
+  .fc-stack{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .fc-stack .fc-photo{ width:40px; height:40px; }
+  .fc-stack .fc-name{ font-size:12.5px; }
+  .fc-stack .fc-mark{ width:16px; height:16px; font-size:9px; }
+
+  .rc-mid, .rc-vs{ display:flex; flex-direction:column; align-items:center; gap:3px;
+    flex-shrink:0; padding:0 clamp(4px, 1vw, 14px); }
+  .rc-verb, .rc-vs{ font-family:'Oswald'; font-size:12px; letter-spacing:0.2em; color:var(--gold);
+    text-transform:uppercase; }
+  .rc-vs{ font-size:13px; opacity:0.85; }
+  .rc-decision{ display:flex; flex-direction:column; align-items:center; gap:1px; }
+  .rc-meth{ font-family:'JetBrains Mono'; font-size:11px; color:var(--gold-bright);
+    background:rgba(214,45,140,0.10); border:1px solid rgba(214,45,140,0.28);
+    padding:2px 10px; border-radius:10px; white-space:nowrap; }
+  .rc-meth.dim{ color:var(--text-dim); background:none; border-color:var(--panel-3); }
+  .rc-fell{ font-size:10px; color:var(--text-dim); white-space:nowrap; }
+
+  @media(max-width:860px){
+    .result-card{ flex-direction:column; gap:10px; padding:12px; }
+    .rc-art{ width:100%; height:120px; }
+    .rc-bout{ gap:8px; }
+    .fc-name{ font-size:12.5px; }
+    .fc-photo{ width:42px; height:42px; }
+    .rc-verb, .rc-vs{ font-size:10px; letter-spacing:0.12em; }
+    .rc-meth{ font-size:10px; padding:2px 7px; }
+    .rc-stars{ margin-left:0; }
+  }
 </style>
 </head>
 <body>
@@ -1457,28 +1542,117 @@ function renderChampionsPage(){
   }).join('') : '<div class="empty">No championships established yet.</div>';
 }
 
+function photoFor(id){
+  const b = bioOf(id);
+  if(b && b.photo_url) return b.photo_url;
+  const r = records.find(x => x.wrestler_id === id);
+  return (r && r.photo_url) || null;
+}
+function initialsOf(name){
+  return String(name||'?').split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase();
+}
+/* One fighter's portrait, tinted by outcome */
+function fighterCell(id, outcome, side){
+  const nm = nameOf(id);
+  const ph = photoFor(id);
+  const mark = outcome === 'win' ? '✓' : outcome === 'loss' ? '✕' : '';
+  return `<div class="fc ${outcome} ${side}" onclick="jumpToWrestler('${id}')" title="${esc(nm)} — view profile">
+    <div class="fc-photo">
+      ${ph ? `<img src="${esc(ph)}" alt="${esc(nm)}">` : `<span class="fc-ini">${esc(initialsOf(nm))}</span>`}
+      <span class="fc-mark">${mark}</span>
+    </div>
+    <div class="fc-name">${esc(nm)}</div>
+  </div>`;
+}
+function fighterStack(ids, outcome, side){
+  const list = (ids || []).filter(Boolean);
+  if(!list.length) return '';
+  if(list.length === 1) return fighterCell(list[0], outcome, side);
+  return `<div class="fc-stack ${side}">${list.slice(0,4).map(id => fighterCell(id, outcome, side)).join('')}</div>`;
+}
+function jumpToWrestler(id){
+  selectedWrestlerId = id;
+  go('roster');
+  renderRosterPage();
+}
 function matchLine(m){
   const type = TYPE_LABELS[m.type_key] || m.type_key;
-  const art = m.poster_url ? `<img class="bout-art sm" src="${esc(m.poster_url)}" onclick="openLightbox('${esc(m.poster_url)}')" alt="match art">` : '';
-  const titleFlag = m.title_id ? '<span class="title-flag">🏆</span>' : '';
-  const method = m.resolved && m.method && m.method !== 'tbd' ? ` <span class="dim">(${METHOD_LABELS[m.method]||m.method})</span>` : '';
+  const titleName = m.title_id ? (titles.find(t => t.id === m.title_id)||{}).name : null;
+  const art = m.poster_url
+    ? `<img class="rc-art" src="${esc(m.poster_url)}" onclick="event.stopPropagation();openLightbox('${esc(m.poster_url)}')" alt="match art">`
+    : '';
+
+  /* ---- not yet revealed ---- */
   if(!m.resolved){
-    let names;
-    if(m.mode === 'singles') names = `${esc(nameOf(m.p1))} <span class="dim">vs</span> ${esc(nameOf(m.p2))}`;
-    else if(m.mode === 'tag') names = `${(m.team_a||[]).map(nameOf).map(esc).join(' & ')} <span class="dim">vs</span> ${(m.team_b||[]).map(nameOf).map(esc).join(' & ')}`;
-    else names = (m.participants||[]).map(nameOf).map(esc).join(' <span class="dim">vs</span> ');
+    let left, right, mid = 'VS';
+    if(m.mode === 'singles'){ left = fighterCell(m.p1,'tbd','l'); right = fighterCell(m.p2,'tbd','r'); }
+    else if(m.mode === 'tag'){ left = fighterStack(m.team_a,'tbd','l'); right = fighterStack(m.team_b,'tbd','r'); }
+    else {
+      const p = m.participants || [];
+      const half = Math.ceil(p.length/2);
+      left = fighterStack(p.slice(0,half),'tbd','l');
+      right = fighterStack(p.slice(half),'tbd','r');
+      mid = p.length + '-WAY';
+    }
     const flag = m.has_result
-      ? '<span class="status-pill pendingres" style="margin-left:auto;">⏳ Result Pending</span>'
-      : (m.betting_open ? '<span class="status-pill live" style="margin-left:auto;">Betting Open</span>' : '');
-    return `<div class="m-line">${art}<span class="type">${type}</span>${titleFlag}<span>${names}</span>${flag}</div>`;
+      ? '<span class="rc-pill pending">⏳ Result Pending</span>'
+      : (m.betting_open ? '<span class="rc-pill live">🎲 Predictions Open</span>' : '');
+    return `<div class="result-card upcoming">
+      ${art}
+      <div class="rc-main">
+        <div class="rc-top">
+          <span class="rc-type">${esc(type)}</span>
+          ${titleName?`<span class="rc-belt">🏆 ${esc(titleName)}</span>`:''}
+          ${flag}
+        </div>
+        <div class="rc-bout">${left}<div class="rc-vs">${mid}</div>${right}</div>
+      </div>
+    </div>`;
   }
-  let core;
-  if(m.mode === 'singles') core = `<span class="winner">${esc(nameOf(m.winner))}</span><span class="dim">def.</span><span>${esc(nameOf(m.loser))}</span>${method}`;
-  else if(m.mode === 'tag'){
-    const win = m.winning_team==='A'?m.team_a:m.team_b, lose = m.winning_team==='A'?m.team_b:m.team_a;
-    core = `<span class="winner">${(win||[]).map(nameOf).map(esc).join(' & ')}</span><span class="dim">def.</span><span>${(lose||[]).map(nameOf).map(esc).join(' & ')}</span>${method}`;
-  } else core = `<span class="winner">${esc(nameOf(m.winner))}</span><span class="dim">outlasted ${(m.participants||[]).length-1} others</span>${method}${m.decision_loser?`<span class="dim">over ${esc(nameOf(m.decision_loser))}</span>`:''}`;
-  return `<div class="m-line">${art}<span class="type">${type}</span>${titleFlag}${core}${starsHtml(m.id)}</div>`;
+
+  /* ---- revealed ---- */
+  let left, right, midLabel;
+  if(m.mode === 'singles'){
+    left = fighterCell(m.winner,'win','l');
+    right = fighterCell(m.loser,'loss','r');
+    midLabel = 'DEF.';
+  } else if(m.mode === 'tag'){
+    const win = m.winning_team==='A'?m.team_a:m.team_b;
+    const lose = m.winning_team==='A'?m.team_b:m.team_a;
+    left = fighterStack(win,'win','l');
+    right = fighterStack(lose,'loss','r');
+    midLabel = 'DEF.';
+  } else {
+    const others = (m.participants||[]).filter(x => x !== m.winner);
+    left = fighterCell(m.winner,'win','l');
+    right = fighterStack(others,'loss','r');
+    midLabel = 'OVER';
+  }
+  const meth = m.method && m.method !== 'tbd' ? (METHOD_LABELS[m.method]||m.method) : null;
+  const fellName = m.decision_loser ? nameOf(m.decision_loser) : null;
+  const decision = meth
+    ? `<div class="rc-decision"><span class="rc-meth">${esc(meth)}</span>${
+        fellName ? `<span class="rc-fell">over ${esc(fellName)}</span>` : ''}</div>`
+    : '<div class="rc-decision"><span class="rc-meth dim">Decision unrecorded</span></div>';
+
+  return `<div class="result-card">
+    ${art}
+    <div class="rc-main">
+      <div class="rc-top">
+        <span class="rc-type">${esc(type)}</span>
+        ${titleName?`<span class="rc-belt">🏆 ${esc(titleName)}</span>`:''}
+        <span class="rc-stars">${starsHtml(m.id)}</span>
+      </div>
+      <div class="rc-bout">
+        ${left}
+        <div class="rc-mid">
+          <div class="rc-verb">${midLabel}</div>
+          ${decision}
+        </div>
+        ${right}
+      </div>
+    </div>
+  </div>`;
 }
 function renderResultsPage(){
   const el = document.getElementById('showsArea');
