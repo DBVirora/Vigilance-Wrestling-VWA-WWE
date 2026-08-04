@@ -1440,13 +1440,15 @@ function matchHistoryFor(id){
     }
     if(!involved || !m.resolved) continue;
     const sh = shows.find(x => x.id === m.show_id) || {};
-    // the method only belongs to the winner or whoever took the deciding fall
+    // the method belongs only to whoever scored the fall or took it
     const multi = m.mode !== 'singles';
-    const tookFall = !multi || won || (m.decision_loser && m.decision_loser === id);
+    const tookFall = !multi
+      || (won  ? (!m.decision_winner || m.decision_winner === id)
+               : (m.decision_loser && m.decision_loser === id));
     out.push({ won, opp, show: sh.name || 'VWA', date: sh.date || '',
       type: TYPE_LABELS[m.type_key] || m.type_key,
       method: tookFall ? m.method : null,
-      noFall: !won && multi && !tookFall,
+      noFall: multi && !tookFall,
       title: m.title_id ? (titles.find(t=>t.id===m.title_id)||{}).name : null });
   }
   return out.sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 12);
@@ -1516,7 +1518,7 @@ function renderWrestlerProfile(r, belts){
           <span class="hist-chip ${h.won?'w':'l'}">${h.won?'W':'L'}</span>
           <div class="hist-body">
             <div class="hist-line">vs ${esc(h.opp)}${h.title?` <span class="hist-belt">🏆 ${esc(h.title)}</span>`:''}</div>
-            <div class="hist-sub">${esc(h.show)}${h.date?' · '+new Date(h.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):''} · ${esc(h.type)}${h.method?' · '+esc(METHOD_LABELS[h.method]||h.method):''}${h.noFall?' · <span style="opacity:.75;">did not take the fall</span>':''}</div>
+            <div class="hist-sub">${esc(h.show)}${h.date?' · '+new Date(h.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):''} · ${esc(h.type)}${h.method?' · '+esc(METHOD_LABELS[h.method]||h.method):''}${h.noFall?(h.won?' · <span style="opacity:.75;">partner scored the fall</span>':' · <span style="opacity:.75;">did not take the fall</span>'):''}</div>
           </div>
         </div>`).join('') : '<div class="hist-sub" style="padding:8px 0;">No revealed matches yet — their story starts soon.</div>'}
     </div>
@@ -1630,9 +1632,12 @@ function matchLine(m){
   }
   const meth = m.method && m.method !== 'tbd' ? (METHOD_LABELS[m.method]||m.method) : null;
   const fellName = m.decision_loser ? nameOf(m.decision_loser) : null;
+  const byName = m.decision_winner ? nameOf(m.decision_winner) : null;
+  const detail = [byName ? 'by ' + esc(byName) : null, fellName ? 'over ' + esc(fellName) : null]
+    .filter(Boolean).join(' · ');
   const decision = meth
     ? `<div class="rc-decision"><span class="rc-meth">${esc(meth)}</span>${
-        fellName ? `<span class="rc-fell">over ${esc(fellName)}</span>` : ''}</div>`
+        detail ? `<span class="rc-fell">${detail}</span>` : ''}</div>`
     : '<div class="rc-decision"><span class="rc-meth dim">Decision unrecorded</span></div>';
 
   return `<div class="result-card">
