@@ -584,6 +584,51 @@
     .rc-meth{ font-size:10px; padding:2px 7px; }
     .rc-stars{ margin-left:0; }
   }
+
+  /* ============ PPV ============ */
+  .ppv-card{ border:1px solid var(--border); border-radius:16px; overflow:hidden; margin-bottom:20px;
+    background:var(--panel); transition:border-color .2s, transform .2s; }
+  .ppv-card.open{ border-color:var(--fc); box-shadow:0 0 0 1px var(--fc), 0 18px 50px rgba(0,0,0,0.5); }
+  .ppv-card:not(.open):hover{ transform:translateY(-2px); border-color:var(--fc); }
+  .ppv-hero{ position:relative; min-height:clamp(180px, 20vw, 300px); background-size:cover;
+    background-position:center 32%; display:flex; align-items:flex-end; }
+  .ppv-hero-scrim{ position:absolute; inset:0;
+    background:linear-gradient(90deg, rgba(13,11,18,0.95) 0%, rgba(13,11,18,0.7) 45%, rgba(13,11,18,0.25) 100%),
+      linear-gradient(180deg, rgba(13,11,18,0.4) 0%, rgba(13,11,18,0) 40%, rgba(13,11,18,0.92) 100%); }
+  .ppv-hero-body{ position:relative; z-index:2; display:flex; align-items:center; gap:20px;
+    padding:clamp(18px, 2vw, 32px); width:100%; }
+  .ppv-logo{ width:clamp(70px, 8vw, 130px); height:auto; flex-shrink:0;
+    filter:drop-shadow(0 6px 22px rgba(0,0,0,0.8)); }
+  .ppv-brand{ font-family:'Oswald'; font-size:11px; letter-spacing:0.28em; text-transform:uppercase;
+    color:var(--fa); margin-bottom:5px; }
+  .ppv-title{ font-family:'Oswald'; font-size:clamp(22px, 2.6vw, 38px); color:var(--canvas);
+    text-transform:uppercase; line-height:1.04; text-shadow:0 3px 18px rgba(0,0,0,0.9); }
+  .ppv-sub{ font-size:13px; color:var(--fa); margin-top:3px; letter-spacing:0.08em; text-transform:uppercase; }
+  .ppv-meta{ display:flex; gap:9px; flex-wrap:wrap; font-size:12.5px; color:var(--text-dim); margin-top:8px; }
+  .ppv-mult{ background:rgba(224,180,92,0.18); color:var(--amber); padding:2px 10px; border-radius:11px;
+    font-family:'Oswald'; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; }
+  .ppv-tagline{ font-size:12.5px; font-style:italic; color:var(--text-dim); margin-top:7px; }
+  .ppv-body{ padding:18px 20px 22px; }
+  .ppv-blurb{ font-size:13.5px; color:var(--text-dim); line-height:1.7; margin-bottom:14px; }
+  .ppv-peek{ font-size:12.5px; color:var(--text-dim); margin-bottom:11px; }
+  .ppv-seg{ margin-top:18px; }
+  .ppv-seg-head{ font-family:'Oswald'; font-size:11px; letter-spacing:0.16em; text-transform:uppercase;
+    margin-bottom:10px; padding-bottom:7px; border-bottom:1px solid var(--panel-3); }
+  .ppv-match{ position:relative; margin-bottom:4px; }
+  .ppv-match.main .result-card{ border-left-color:var(--fa); background:linear-gradient(90deg,
+    rgba(227,189,106,0.06), transparent 60%); }
+  .ppv-me{ position:absolute; top:-8px; left:16px; z-index:3; font-family:'Oswald'; font-size:9px;
+    letter-spacing:0.16em; text-transform:uppercase; color:#0d0b12; padding:2px 10px; border-radius:9px; }
+  .ppv-build{ font-size:12px; color:var(--text-dim); line-height:1.65; font-style:italic;
+    margin:-4px 0 12px; padding:0 16px 0 20px; border-left:2px solid var(--fc); }
+  .ppv-motn{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 14px;
+    background:rgba(224,180,92,0.08); border:1px solid rgba(224,180,92,0.35); border-radius:10px;
+    margin-bottom:14px; }
+  .motn-badge{ font-family:'Oswald'; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--amber); }
+  .motn-name{ font-size:13.5px; color:var(--canvas); font-weight:600; }
+  .motn-stars{ margin-left:auto; font-family:'JetBrains Mono'; font-size:11.5px; color:var(--amber); }
+  @media(max-width:760px){ .ppv-hero-body{ flex-direction:column; align-items:flex-start; gap:12px; } }
 </style>
 </head>
 <body>
@@ -607,6 +652,7 @@
       <button class="navtop" onclick="toggleGroup(event,'shows')">Shows <span class="caret">▾</span></button>
       <div class="navmenu">
         <button onclick="go('upcoming')">Upcoming Cards</button>
+        <button onclick="go('ppv')">PPV Events</button>
         <button onclick="go('results')">Results Archive</button>
         <button onclick="go('watch')">Watch Live<span class="live-dot" id="liveDot" style="display:none;"></span></button>
       </div>
@@ -743,6 +789,14 @@
     <div id="playerArea"></div>
   </div>
 
+  <div class="page" id="page-ppv">
+    <h2 class="section-title">PPV Events</h2>
+    <div style="color:var(--text-dim); font-size:13px; margin-bottom:16px; line-height:1.6;">
+      The nights that decide everything. Championships change hands, stories end, and the payouts are bigger.
+    </div>
+    <div id="ppvArea"></div>
+  </div>
+
   <div class="page" id="page-news">
     <h2 class="section-title">Storylines</h2>
     <div style="color:var(--text-dim); font-size:13px; margin-bottom:14px; line-height:1.6;">The ongoing story of the VWA — breaking news, social drama, interviews, and official announcements.</div>
@@ -841,6 +895,7 @@ const TYPE_LABELS = { singles:'Singles', tag_team:'Tag Team', tornado_tag:'Torna
 
 let records = [], methods = [], champions = [], shows = [], showMatches = [], titleHistory = [], titles = [];
 let wrestlerBios = [], rosterFilter = 'all', selectedWrestlerId = null;
+let franchises = [], motn = [];
 let pools = [], myBets = [], ratings = [], myRatings = [], leaderboard = [];
 let economy = { min_bet:10, max_bet:5000, daily_bonus:150, starting_balance:1000 };
 let me = null, myProfile = null, picks = {};
@@ -857,6 +912,7 @@ function go(page){
   if(page === 'account') renderAccount();
   if(page === 'leaderboard') renderLeaderboard();
   if(page === 'upcoming') renderUpcoming();
+  if(page === 'ppv') renderPpv();
 }
 function avatar(url, name, cls){
   if(url) return `<img class="${cls||''}" src="${esc(url)}" alt="${esc(name)}">`;
@@ -1011,6 +1067,8 @@ async function loadAll(){
     db.from('title_history').select('*').order('won_date'),
     db.from('v_bet_pools').select('*'),
     db.from('v_match_ratings').select('*'),
+    db.from('ppv_franchises').select('*').order('sort_order'),
+    db.from('v_motn').select('*'),
     db.from('v_leaderboard').select('*').order('balance', { ascending:false }).limit(100),
     db.from('site_settings').select('*').eq('key','economy').maybeSingle()
   ];
@@ -1021,8 +1079,10 @@ async function loadAll(){
 
   records = pick(0) || []; methods = pick(1) || []; champions = pick(2) || [];
   shows = pick(3) || []; showMatches = pick(4) || []; titles = pick(5) || []; titleHistory = pick(6) || [];
-  pools = pick(7) || []; ratings = pick(8) || []; leaderboard = pick(9) || [];
-  const ec = pick(10);
+  pools = pick(7) || []; ratings = pick(8) || [];
+  franchises = pick(9) || []; motn = pick(10) || [];
+  leaderboard = pick(11) || [];
+  const ec = pick(12);
   if(ec && ec.value) economy = Object.assign(economy, ec.value);
 
   if(failed === q.length) throw new Error('all queries failed');
@@ -1973,8 +2033,101 @@ document.addEventListener('keydown', e => {
   else if(e.key === 'Enter'){ e.preventDefault(); runPalette(palSel); }
 });
 
+/* ---------------- PPV EVENTS ---------------- */
+function motnFor(showId){
+  const row = motn.find(x => x.show_id === showId);
+  return row && row.match_id ? row : null;
+}
+function ppvShows(){
+  return shows.filter(s => s.show_type === 'ple')
+    .sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')));
+}
+function ppvCardHtml(sh, expanded){
+  const f = franchises.find(x => x.id === sh.franchise_id);
+  const col = (f && f.color) || '#d62d8c';
+  const acc = (f && f.accent) || '#e3bd6a';
+  const ms = showMatches.filter(m => m.show_id === sh.id).sort((a,b)=>a.position-b.position);
+  const pre = ms.filter(m => m.card_segment === 'preshow');
+  const main = ms.filter(m => m.card_segment !== 'preshow');
+  const upcoming = isUpcoming(sh);
+  const d = showDateObj(sh);
+  const dateStr = sh.date ? new Date(sh.date+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric', year:'numeric'}) : 'Date TBA';
+  const timeStr = sh.start_time ? new Date('2000-01-01T'+sh.start_time+':00').toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '';
+  const mult = Number(sh.payout_multiplier || 1);
+  const best = motnFor(sh.id);
+  const bestMatch = best ? ms.find(m => m.id === best.match_id) : null;
+
+  const bg = (f && f.banner_url) ? `background-image:url('${esc(f.banner_url)}');`
+           : (sh.poster_url ? `background-image:url('${esc(sh.poster_url)}');` : '');
+
+  const cardRows = (list, label) => list.length ? `
+    <div class="ppv-seg">
+      <div class="ppv-seg-head" style="color:${esc(acc)};">${label}</div>
+      ${list.map(m => `
+        <div class="ppv-match ${m.is_main_event?'main':''}">
+          ${m.is_main_event?`<div class="ppv-me" style="background:${esc(col)};">Main Event</div>`:''}
+          ${matchLine(m)}
+          ${m.build_up?`<div class="ppv-build">${esc(m.build_up)}</div>`:''}
+        </div>`).join('')}
+    </div>` : '';
+
+  return `<article class="ppv-card ${expanded?'open':''}" style="--fc:${esc(col)}; --fa:${esc(acc)};">
+    <header class="ppv-hero" style="${bg}">
+      <div class="ppv-hero-scrim"></div>
+      <div class="ppv-hero-body">
+        ${f && f.logo_url ? `<img class="ppv-logo" src="${esc(f.logo_url)}" alt="">` : ''}
+        <div>
+          ${f ? `<div class="ppv-brand" style="color:${esc(acc)};">${esc(f.name)}${sh.edition?' · '+esc(sh.edition):''}</div>` : '<div class="ppv-brand">Premium Live Event</div>'}
+          <h3 class="ppv-title">${esc(sh.name)}</h3>
+          ${sh.subtitle?`<div class="ppv-sub">${esc(sh.subtitle)}</div>`:''}
+          <div class="ppv-meta">
+            <span>${dateStr}${timeStr?' · '+timeStr:''}</span>
+            ${sh.venue?`<span>· ${esc(sh.venue)}</span>`:''}
+            ${mult>1?`<span class="ppv-mult">${mult}× payouts</span>`:''}
+          </div>
+          ${f && f.tagline ? `<div class="ppv-tagline">"${esc(f.tagline)}"</div>` : ''}
+        </div>
+      </div>
+    </header>
+    <div class="ppv-body">
+      ${sh.announcement?`<p class="ppv-blurb">${esc(sh.announcement)}</p>`:''}
+      ${upcoming && d ? countdownHtml(sh) : ''}
+      ${bestMatch ? `<div class="ppv-motn">
+        <span class="motn-badge">★ Match of the Night</span>
+        <span class="motn-name">${esc(matchTitleText(bestMatch))}</span>
+        ${best.avg_stars?`<span class="motn-stars">${Number(best.avg_stars).toFixed(1)} ★ · ${best.votes} vote${best.votes===1?'':'s'}</span>`:''}
+      </div>` : ''}
+      ${expanded ? (cardRows(main, 'The Card') + cardRows(pre, 'Kickoff Show')) : `
+        <div class="ppv-peek">${ms.length} match${ms.length===1?'':'es'}${pre.length?` · ${pre.length} on the kickoff show`:''}</div>
+        <button class="btn ghost small" onclick="openPpv('${sh.id}')">View full card →</button>`}
+    </div>
+  </article>`;
+}
+function matchTitleText(m){
+  if(m.mode === 'singles') return nameOf(m.p1) + ' vs ' + nameOf(m.p2);
+  if(m.mode === 'tag') return (m.team_a||[]).map(nameOf).join(' & ') + ' vs ' + (m.team_b||[]).map(nameOf).join(' & ');
+  return (m.participants||[]).map(nameOf).join(' · ');
+}
+let openPpvId = null;
+function openPpv(id){ openPpvId = (openPpvId === id ? null : id); renderPpv(); window.scrollTo({top:0, behavior:'smooth'}); }
+function renderPpv(){
+  const el = document.getElementById('ppvArea');
+  if(!el) return;
+  const list = ppvShows();
+  if(!list.length){
+    el.innerHTML = '<div class="empty">No PPV events yet — the first one is coming.</div>';
+    return;
+  }
+  if(!openPpvId){
+    const next = list.find(isUpcoming);
+    if(next) openPpvId = next.id;
+  }
+  el.innerHTML = list.map(sh => ppvCardHtml(sh, sh.id === openPpvId)).join('');
+  startCountdownTicker();
+}
+
 function renderAll(){
-  renderHome(); renderSideTonight(); renderUpcoming(); renderBets(); renderLeaderboard();
+  renderHome(); renderSideTonight(); renderUpcoming(); renderPpv(); renderBets(); renderLeaderboard();
   renderRosterPage(); renderChampionsPage(); renderResultsPage(); renderAccount();
   startCountdownTicker();
 }
