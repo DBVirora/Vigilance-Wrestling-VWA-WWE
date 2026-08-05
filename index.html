@@ -629,6 +629,12 @@
   .motn-name{ font-size:13.5px; color:var(--canvas); font-weight:600; }
   .motn-stars{ margin-left:auto; font-family:'JetBrains Mono'; font-size:11.5px; color:var(--amber); }
   @media(max-width:760px){ .ppv-hero-body{ flex-direction:column; align-items:flex-start; gap:12px; } }
+  .ppv-blurb{ white-space:pre-line; }
+  .ppv-about{ border-left:3px solid var(--fc); padding:2px 0 2px 16px; margin:16px 0 4px; }
+  .ppv-about-head{ font-family:'Oswald'; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase;
+    margin-bottom:8px; }
+  .ppv-about-body{ font-size:13.5px; color:var(--text-dim); line-height:1.8; white-space:pre-line; }
+  .ppv-build{ white-space:pre-line; }
 </style>
 </head>
 <body>
@@ -2091,6 +2097,10 @@ function ppvCardHtml(sh, expanded){
     </header>
     <div class="ppv-body">
       ${sh.announcement?`<p class="ppv-blurb">${esc(sh.announcement)}</p>`:''}
+      ${expanded && f && f.about ? `<div class="ppv-about">
+        <div class="ppv-about-head" style="color:${esc(acc)};">About ${esc(f.name)}</div>
+        <div class="ppv-about-body">${esc(f.about)}</div>
+      </div>` : ''}
       ${upcoming && d ? countdownHtml(sh) : ''}
       ${bestMatch ? `<div class="ppv-motn">
         <span class="motn-badge">★ Match of the Night</span>
