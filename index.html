@@ -1324,16 +1324,26 @@ async function toggleVisibility(){
 }
 
 /* ---------------- UPCOMING SHOWS ---------------- */
+/* Postgres can hand back a date as '2026-08-09' or a full timestamp, and a
+   time as '13:30', '13:30:00' or '13:30:00+00'. Normalise all of it. */
 function showDateObj(s){
-  if(!s.date) return null;
-  return new Date(s.date + 'T' + (s.start_time || '19:00') + ':00');
+  if(!s || !s.date) return null;
+  const datePart = String(s.date).slice(0, 10);
+  let hhmm = '19:00';
+  if(s.start_time){
+    const m = String(s.start_time).match(/^(\d{1,2}):(\d{2})/);
+    if(m) hhmm = m[1].padStart(2,'0') + ':' + m[2];
+  }
+  const d = new Date(datePart + 'T' + hhmm + ':00');
+  return isNaN(d.getTime()) ? null : d;
 }
 function isUpcoming(s){
   const ms = showMatches.filter(m => m.show_id === s.id);
-  if(ms.length && ms.every(m => m.resolved)) return false;   // fully revealed = archived
+  // a fully revealed card is history, whatever its date says
+  if(ms.length && ms.every(m => m.resolved)) return false;
   const d = showDateObj(s);
-  if(!d) return true;
-  return d.getTime() > Date.now() - 6*60*60*1000; // stays "upcoming" for 6h after start
+  if(!d) return true;                        // no usable date → still to come
+  return d.getTime() > Date.now() - 6*60*60*1000;
 }
 function upcomingShows(){
   return shows.filter(isUpcoming).sort((a,b) => {
@@ -1397,8 +1407,13 @@ function renderUpcoming(){
   const el = document.getElementById('upcomingArea');
   if(!el) return;
   const list = upcomingShows();
-  el.innerHTML = list.length
-    ? list.map((s,i) => eventCardHtml(s, i===0)).join('')
+  if(list.length){
+    el.innerHTML = list.map((s,i) => eventCardHtml(s, i===0)).join('');
+    return;
+  }
+  const past = shows.filter(s => !isUpcoming(s)).length;
+  el.innerHTML = past
+    ? `<div class="empty">Nothing on the schedule right now — ${past} show${past===1?'':'s'} already in the books. Check <b>Results</b>.</div>`
     : '<div class="empty">No shows announced yet. Check back soon.</div>';
 }
 let cdTimer = null;
