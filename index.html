@@ -1931,7 +1931,8 @@ const BUILT_IN_THEMES = {
       '--glow':'rgba(214,45,140,0.35)','--border-strong':'rgba(214,45,140,0.45)',
       '--accent-soft':'rgba(214,45,140,0.10)','--texture':'none',
       '--nav-grad':'linear-gradient(180deg, rgba(13,11,18,0.98), rgba(13,11,18,0.94))',
-      '--shadow-lift':'0 10px 30px rgba(0,0,0,0.4)'
+      '--shadow-lift':'0 10px 30px rgba(0,0,0,0.4)',
+      '--heading-font':"'Oswald', sans-serif"
     }
   },
   autumn: {
@@ -1953,7 +1954,8 @@ const BUILT_IN_THEMES = {
       '--accent-soft':'rgba(224,114,38,0.12)',
       '--texture':"repeating-linear-gradient(112deg, rgba(255,190,120,0.022) 0 2px, transparent 2px 7px)",
       '--nav-grad':'linear-gradient(180deg, rgba(24,14,9,0.99), rgba(24,14,9,0.93))',
-      '--shadow-lift':'0 12px 34px rgba(40,14,0,0.55)'
+      '--shadow-lift':'0 12px 34px rgba(40,14,0,0.55)',
+      '--heading-font':"'Oswald', sans-serif"
     }
   },
   emberfall: {
@@ -1970,7 +1972,8 @@ const BUILT_IN_THEMES = {
       '--border-strong':'rgba(255,157,92,0.55)','--accent-soft':'rgba(255,106,43,0.12)',
       '--texture':'none',
       '--nav-grad':'linear-gradient(180deg, rgba(20,10,6,0.99), rgba(20,10,6,0.92))',
-      '--shadow-lift':'0 12px 34px rgba(50,16,0,0.6)'
+      '--shadow-lift':'0 12px 34px rgba(50,16,0,0.6)',
+      '--heading-font':"'Oswald', sans-serif"
     }
   },
   harvest: {
@@ -1987,7 +1990,8 @@ const BUILT_IN_THEMES = {
       '--border-strong':'rgba(242,205,99,0.55)','--accent-soft':'rgba(217,160,33,0.12)',
       '--texture':"repeating-linear-gradient(100deg, rgba(255,220,150,0.02) 0 2px, transparent 2px 8px)",
       '--nav-grad':'linear-gradient(180deg, rgba(25,19,8,0.99), rgba(25,19,8,0.93))',
-      '--shadow-lift':'0 12px 32px rgba(40,28,0,0.5)'
+      '--shadow-lift':'0 12px 32px rgba(40,28,0,0.5)',
+      '--heading-font':"'Oswald', sans-serif"
     }
   },
   midwinter: {
@@ -2004,7 +2008,8 @@ const BUILT_IN_THEMES = {
       '--border-strong':'rgba(154,212,245,0.5)','--accent-soft':'rgba(90,168,216,0.10)',
       '--texture':'none',
       '--nav-grad':'linear-gradient(180deg, rgba(9,15,23,0.99), rgba(9,15,23,0.93))',
-      '--shadow-lift':'0 12px 32px rgba(0,10,25,0.55)'
+      '--shadow-lift':'0 12px 32px rgba(0,10,25,0.55)',
+      '--heading-font':"'Oswald', sans-serif"
     }
   },
   springbloom: {
@@ -2021,7 +2026,8 @@ const BUILT_IN_THEMES = {
       '--border-strong':'rgba(255,156,196,0.5)','--accent-soft':'rgba(228,106,158,0.11)',
       '--texture':'none',
       '--nav-grad':'linear-gradient(180deg, rgba(16,11,19,0.99), rgba(16,11,19,0.93))',
-      '--shadow-lift':'0 12px 32px rgba(30,0,20,0.5)'
+      '--shadow-lift':'0 12px 32px rgba(30,0,20,0.5)',
+      '--heading-font':"'Oswald', sans-serif"
     }
   }
 };
@@ -2167,6 +2173,8 @@ function seasonalBurst(n){
 /* ================= boot ================= */
 async function initTheming(){
   initParticles();
+  applyTheme('autumn');          // paint something instantly
+
   let key = 'autumn', wantParticles = true;
   try{
     const [{ data:cfg }, { data:cust }] = await Promise.all([
@@ -2502,6 +2510,9 @@ setTimeout(dismissBoot, 6000);
 window.addEventListener('error', dismissBoot);
 
 (async function init(){
+  // theme first so there's no flash of the wrong palette
+  try{ await initTheming(); }catch(e){ console.warn('theming failed, using default', e); applyTheme('autumn'); }
+
   // fire-and-forget loaders — a failure here can't block the page
   try{ loadStreamCfg(); }catch(e){ console.warn('stream cfg', e); }
   try{ loadBranding(); }catch(e){ console.warn('branding', e); }
@@ -2510,11 +2521,6 @@ window.addEventListener('error', dismissBoot);
 
   try{
     await refreshUser();
-    try{
-      const { data:adm } = await db.rpc('is_admin');
-      isAdminViewer = adm === true;
-      renderThemeGrid();
-    }catch(e){}
   }catch(e){ console.warn('auth unavailable', e); }
 
   try{
