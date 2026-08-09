@@ -12,7 +12,25 @@
     --bg:#111117; --panel:#1b1c24; --panel-2:#22232d; --panel-3:#2a2b36; --border:#34353f;
     --canvas:#f0e9dc; --gold:#d62d8c; --gold-bright:#ff6bb5; --red:#c22a24; --teal:#3e8e82;
     --steel:#5b7ca3; --grey:#8b889a; --text:#ede9df; --text-dim:#a0959c; --amber:#e3bd6a;
+    /* theming surface — every theme sets these */
+    --bg-grad:none;
+    --panel-grad:none;
+    --glow:rgba(214,45,140,0.35);
+    --radius:12px;
+    --border-strong:rgba(214,45,140,0.45);
+    --accent-soft:rgba(214,45,140,0.10);
+    --texture:none;
+    --nav-grad:linear-gradient(180deg, rgba(13,11,18,0.98), rgba(13,11,18,0.94));
+    --heading-font:'Oswald', sans-serif;
+    --shadow-lift:0 10px 30px rgba(0,0,0,0.4);
   }
+  body{ background:var(--bg); background-image:var(--bg-grad); background-attachment:fixed; }
+  body::before{ content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:var(--texture); opacity:0.5; mix-blend-mode:soft-light; }
+  main, nav.topnav, .ui{ position:relative; z-index:1; }
+  .panel, .lb-card, .event-card, .result-card, .news-card, .hero, .hero-side,
+  .ppv-card, .profile-card, .stat, .cd-unit{ background-image:var(--panel-grad); }
+  #leafLayer{ position:fixed; inset:0; pointer-events:none; z-index:200; }
   *{box-sizing:border-box;}
   body{ margin:0; background:radial-gradient(ellipse 900px 500px at 50% -10%, rgba(155,109,255,0.12), transparent 60%), var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
   h1,h2,h3,h4{ font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.02em; margin:0; }
@@ -636,9 +654,87 @@
     margin-bottom:8px; }
   .ppv-about-body{ font-size:13.5px; color:var(--text-dim); line-height:1.8; white-space:pre-line; }
   .ppv-build{ white-space:pre-line; }
+
+  /* ============ THEME-AWARE SURFACES ============ */
+  .panel, .lb-card, .event-card, .result-card, .news-card, .hero, .hero-side, .ppv-card,
+  .profile-card, .form-card, .empty{ border-radius:var(--radius); }
+  .lb-card, .event-card, .news-card, .hero-side, .result-card{
+    box-shadow:0 2px 0 rgba(255,255,255,0.02) inset; }
+  .lb-card:hover, .news-card:hover{ border-color:var(--border-strong); }
+  .section-title{ font-family:var(--heading-font); position:relative; padding-left:14px; }
+  .section-title::before{ content:''; position:absolute; left:0; top:50%; transform:translateY(-50%);
+    width:4px; height:70%; border-radius:2px;
+    background:linear-gradient(180deg, var(--gold-bright), var(--gold)); }
+  nav.topnav{ background:var(--nav-grad); }
+  .navlinks > button.active{ border-bottom-color:var(--gold); }
+  .navlinks > button, .navtop{ transition:color .16s, background .16s; border-radius:8px 8px 0 0; }
+  .navlinks > button:hover, .navtop:hover{ background:var(--accent-soft); }
+  .btn{ transition:transform .14s, box-shadow .16s, border-color .16s, background .16s; }
+  .btn:hover{ transform:translateY(-1px); box-shadow:0 6px 18px var(--glow); }
+  .btn:active{ transform:translateY(0); }
+  .result-card:hover, .event-card:hover, .ppv-card:not(.open):hover{
+    border-color:var(--border-strong); box-shadow:var(--shadow-lift); }
+  .rc-type, .bout-tag, .tag, .rc-pill{ border:1px solid transparent; }
+  .cd-unit{ border-radius:calc(var(--radius) - 3px); }
+
+  /* autumn flourishes — only when the fall seasons are active */
+  body[data-season="fall"] .section-title::before{
+    background:linear-gradient(180deg, #f2c14e, var(--gold), #a63c18); }
+  body[data-season="fall"] .hero{ border-color:rgba(240,182,76,0.35); }
+  body[data-season="fall"] .lb-card, body[data-season="fall"] .news-card,
+  body[data-season="fall"] .hero-side, body[data-season="fall"] .event-card{
+    border-top:1px solid rgba(255,190,120,0.14); }
+  body[data-season="fall"] .navbrand img{ filter:drop-shadow(0 2px 12px rgba(224,114,38,0.6)); }
+  body[data-season="fall"] .site-foot img{ filter:drop-shadow(0 3px 14px rgba(224,114,38,0.45)); }
+  body[data-season="fall"] .hero-crest{
+    filter:drop-shadow(0 10px 34px rgba(0,0,0,0.8)) drop-shadow(0 0 30px rgba(224,114,38,0.5)); }
+  body[data-season="winter"] .navbrand img{ filter:drop-shadow(0 2px 12px rgba(90,168,216,0.6)); }
+  body[data-season="spring"] .navbrand img{ filter:drop-shadow(0 2px 12px rgba(228,106,158,0.6)); }
+
+  /* ============ THEME PANEL ============ */
+  .themepanel{ position:fixed; inset:0; z-index:320; background:rgba(6,4,3,0.74);
+    display:none; align-items:flex-start; justify-content:center; padding-top:9vh;
+    backdrop-filter:blur(5px); }
+  .themepanel.open{ display:flex; }
+  .tp-box{ width:min(760px, 94vw); background:var(--panel); border:1px solid var(--border-strong);
+    border-radius:calc(var(--radius) + 2px); overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.65); }
+  .tp-head{ display:flex; align-items:center; padding:16px 20px; border-bottom:1px solid var(--panel-3);
+    font-family:var(--heading-font); font-size:14px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--gold-bright); }
+  .tp-x{ margin-left:auto; background:none; border:1px solid var(--border); color:var(--text-dim);
+    width:28px; height:28px; border-radius:50%; cursor:pointer; }
+  .tp-x:hover{ border-color:var(--gold); color:var(--gold-bright); }
+  .tp-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(148px,1fr)); gap:12px;
+    padding:18px 20px; max-height:56vh; overflow-y:auto; }
+  .tp-card{ position:relative; background:var(--panel-2); border:1px solid var(--border);
+    border-radius:11px; padding:10px; cursor:pointer; transition:border-color .16s, transform .16s; }
+  .tp-card:hover{ transform:translateY(-2px); border-color:var(--border-strong); }
+  .tp-card.on{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 8px 22px var(--glow); }
+  .tp-prev{ position:relative; height:58px; border-radius:8px; border:1px solid; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
+  .tp-prev-bar{ position:absolute; left:0; right:0; top:0; height:5px; }
+  .tp-prev-t{ font-size:20px; }
+  .tp-label{ font-size:12px; color:var(--canvas); font-family:var(--heading-font);
+    letter-spacing:0.05em; text-transform:uppercase; }
+  .tp-sws{ display:flex; gap:3px; margin-top:6px; }
+  .tp-sw{ width:14px; height:8px; border-radius:2px; }
+  .tp-del{ position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
+    background:var(--panel-3); border:1px solid var(--border); color:var(--text-dim);
+    font-size:10px; cursor:pointer; }
+  .tp-del:hover{ color:#e05c5c; border-color:#e05c5c; }
+  .tp-foot{ padding:14px 20px 18px; border-top:1px solid var(--panel-3); }
+  .tp-row{ display:flex; gap:8px; margin-bottom:10px; }
+  .tp-row input{ flex:1; background:var(--panel-3); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); padding:8px 12px; font-family:inherit; font-size:13px; outline:none; }
+  .tp-row input:focus{ border-color:var(--gold); }
+  .tp-chk{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); cursor:pointer; }
+  .tp-chk input{ accent-color:var(--gold); }
+  .tp-note{ font-size:11px; color:var(--text-dim); margin-top:8px; line-height:1.5; }
+  @media(prefers-reduced-motion:reduce){ #leafLayer{ display:none; } }
 </style>
 </head>
 <body>
+<canvas id="leafLayer"></canvas>
 <div class="boot" id="bootScreen">
   <img src="https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/craiyon_174442_image.png" alt="VWA">
 </div>
@@ -688,9 +784,28 @@
     <button class="navsearch" onclick="openPalette()" title="Search — press / or Ctrl+K">
       <span>Search</span><kbd>/</kbd>
     </button>
+    <button class="navsearch" onclick="openThemePanel()" title="Change the site theme" style="padding:7px 11px;">🍂</button>
     <div id="navAuth"></div>
   </div>
 </nav>
+
+<div class="themepanel" id="themePanel" onclick="if(event.target===this) closeThemePanel()">
+  <div class="tp-box">
+    <div class="tp-head">
+      <span>Site Theme</span>
+      <button class="tp-x" onclick="closeThemePanel()">✕</button>
+    </div>
+    <div class="tp-grid" id="themeGrid"></div>
+    <div class="tp-foot">
+      <div class="tp-row">
+        <input type="text" id="tpName" placeholder="Name this look…" maxlength="30">
+        <button class="btn small" onclick="saveCurrentTheme()">Save current</button>
+      </div>
+      <label class="tp-chk"><input type="checkbox" id="tpParticles" checked onchange="toggleParticles()"> Seasonal effects on page change</label>
+      <div class="tp-note" id="tpAdminNote"></div>
+    </div>
+  </div>
+</div>
 
 <div class="palette" id="palette" onclick="if(event.target===this) closePalette()">
   <div class="pal-box">
@@ -913,6 +1028,7 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
 function cleanErr(m){ return String(m||'Something went wrong').replace(/^.*?:\s*/, ''); }
 function go(page){
   document.querySelectorAll('.navgroup').forEach(x => x.classList.remove('open'));
+  if(typeof seasonalBurst === 'function') seasonalBurst(30);
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
   window.scrollTo({ top:0, behavior:'smooth' });
@@ -1856,6 +1972,355 @@ function setLive(live){
   renderSideTonight();
 }
 
+
+/* ================= THEME ENGINE =================
+   Every theme is a flat map of CSS variables plus a particle kind.
+   The palette you were using is preserved as "Royal Cosmos".
+================================================= */
+const BUILT_IN_THEMES = {
+  royal: {
+    label:'Royal Cosmos', season:'none', particle:'none',
+    vars:{
+      '--bg':'#111117','--panel':'#1b1c24','--panel-2':'#22232d','--panel-3':'#2a2b36',
+      '--border':'#34353f','--canvas':'#f0e9dc','--gold':'#d62d8c','--gold-bright':'#ff6bb5',
+      '--red':'#c22a24','--teal':'#3e8e82','--steel':'#5b7ca3','--grey':'#8b889a',
+      '--text':'#ede9df','--text-dim':'#a0959c','--amber':'#e3bd6a',
+      '--bg-grad':'none','--panel-grad':'none','--radius':'12px',
+      '--glow':'rgba(214,45,140,0.35)','--border-strong':'rgba(214,45,140,0.45)',
+      '--accent-soft':'rgba(214,45,140,0.10)','--texture':'none',
+      '--nav-grad':'linear-gradient(180deg, rgba(13,11,18,0.98), rgba(13,11,18,0.94))',
+      '--shadow-lift':'0 10px 30px rgba(0,0,0,0.4)'
+    }
+  },
+  autumn: {
+    label:'Autumn Reign', season:'fall', particle:'leaves',
+    vars:{
+      '--bg':'#140d09',
+      '--panel':'#20140e','--panel-2':'#2a1b12','--panel-3':'#352218',
+      '--border':'#4a2f1e',
+      '--canvas':'#fbeeda','--gold':'#e07226','--gold-bright':'#ffa14a',
+      '--red':'#b3341c','--teal':'#7a8f42','--steel':'#8a6a45','--grey':'#a08a72',
+      '--text':'#f6e7d2','--text-dim':'#b79a7c','--amber':'#f0b64c',
+      '--bg-grad':'radial-gradient(ellipse 120% 80% at 50% -10%, rgba(224,114,38,0.16), transparent 60%),' +
+                  'radial-gradient(ellipse 90% 60% at 12% 100%, rgba(179,52,28,0.14), transparent 65%),' +
+                  'linear-gradient(180deg, #1a0f0a 0%, #140d09 45%, #0f0906 100%)',
+      '--panel-grad':'linear-gradient(160deg, rgba(224,114,38,0.07), rgba(0,0,0,0) 55%)',
+      '--radius':'14px',
+      '--glow':'rgba(224,114,38,0.42)',
+      '--border-strong':'rgba(240,182,76,0.55)',
+      '--accent-soft':'rgba(224,114,38,0.12)',
+      '--texture':"repeating-linear-gradient(112deg, rgba(255,190,120,0.022) 0 2px, transparent 2px 7px)",
+      '--nav-grad':'linear-gradient(180deg, rgba(24,14,9,0.99), rgba(24,14,9,0.93))',
+      '--shadow-lift':'0 12px 34px rgba(40,14,0,0.55)'
+    }
+  },
+  emberfall: {
+    label:'Emberfall', season:'fall', particle:'embers',
+    vars:{
+      '--bg':'#0f0806','--panel':'#1c110c','--panel-2':'#251710','--panel-3':'#2f1e15',
+      '--border':'#452a1c','--canvas':'#ffeeda','--gold':'#ff6a2b','--gold-bright':'#ff9d5c',
+      '--red':'#c9331b','--teal':'#8a7a3a','--steel':'#7d6248','--grey':'#9a8471',
+      '--text':'#f7e6d5','--text-dim':'#b3937c','--amber':'#ffc061',
+      '--bg-grad':'radial-gradient(ellipse 100% 70% at 50% 110%, rgba(255,106,43,0.20), transparent 60%),' +
+                  'linear-gradient(180deg, #170c07, #0d0705)',
+      '--panel-grad':'linear-gradient(180deg, rgba(255,106,43,0.06), transparent 60%)',
+      '--radius':'10px','--glow':'rgba(255,106,43,0.45)',
+      '--border-strong':'rgba(255,157,92,0.55)','--accent-soft':'rgba(255,106,43,0.12)',
+      '--texture':'none',
+      '--nav-grad':'linear-gradient(180deg, rgba(20,10,6,0.99), rgba(20,10,6,0.92))',
+      '--shadow-lift':'0 12px 34px rgba(50,16,0,0.6)'
+    }
+  },
+  harvest: {
+    label:'Harvest Gold', season:'fall', particle:'leaves',
+    vars:{
+      '--bg':'#141008','--panel':'#211a0e','--panel-2':'#2b2213','--panel-3':'#372c19',
+      '--border':'#4d3d20','--canvas':'#fdf3d8','--gold':'#d9a021','--gold-bright':'#f5cf72',
+      '--red':'#a5411f','--teal':'#6f8a3c','--steel':'#8a7645','--grey':'#a3937a',
+      '--text':'#f7ecd2','--text-dim':'#b8a47f','--amber':'#f2cd63',
+      '--bg-grad':'radial-gradient(ellipse 110% 75% at 50% -5%, rgba(217,160,33,0.15), transparent 60%),' +
+                  'linear-gradient(180deg, #191308, #100c06)',
+      '--panel-grad':'linear-gradient(160deg, rgba(217,160,33,0.07), transparent 55%)',
+      '--radius':'14px','--glow':'rgba(217,160,33,0.40)',
+      '--border-strong':'rgba(242,205,99,0.55)','--accent-soft':'rgba(217,160,33,0.12)',
+      '--texture':"repeating-linear-gradient(100deg, rgba(255,220,150,0.02) 0 2px, transparent 2px 8px)",
+      '--nav-grad':'linear-gradient(180deg, rgba(25,19,8,0.99), rgba(25,19,8,0.93))',
+      '--shadow-lift':'0 12px 32px rgba(40,28,0,0.5)'
+    }
+  },
+  midwinter: {
+    label:'Midwinter', season:'winter', particle:'snow',
+    vars:{
+      '--bg':'#080d14','--panel':'#111a26','--panel-2':'#16222f','--panel-3':'#1d2c3c',
+      '--border':'#2b3f52','--canvas':'#eaf4ff','--gold':'#5aa8d8','--gold-bright':'#9ad4f5',
+      '--red':'#b8434b','--teal':'#4f9c94','--steel':'#6d8aa5','--grey':'#8496a6',
+      '--text':'#e6f1fb','--text-dim':'#93a7ba','--amber':'#d8c98a',
+      '--bg-grad':'radial-gradient(ellipse 120% 80% at 50% -10%, rgba(90,168,216,0.14), transparent 62%),' +
+                  'linear-gradient(180deg, #0c1420, #070b11)',
+      '--panel-grad':'linear-gradient(170deg, rgba(154,212,245,0.05), transparent 55%)',
+      '--radius':'12px','--glow':'rgba(90,168,216,0.38)',
+      '--border-strong':'rgba(154,212,245,0.5)','--accent-soft':'rgba(90,168,216,0.10)',
+      '--texture':'none',
+      '--nav-grad':'linear-gradient(180deg, rgba(9,15,23,0.99), rgba(9,15,23,0.93))',
+      '--shadow-lift':'0 12px 32px rgba(0,10,25,0.55)'
+    }
+  },
+  springbloom: {
+    label:'Spring Bloom', season:'spring', particle:'petals',
+    vars:{
+      '--bg':'#0f0b12','--panel':'#1a1420','--panel-2':'#221a29','--panel-3':'#2b2134',
+      '--border':'#3d2f47','--canvas':'#fdeef6','--gold':'#e46a9e','--gold-bright':'#ff9cc4',
+      '--red':'#c2405a','--teal':'#5aa87a','--steel':'#7f7aa5','--grey':'#9b8fa3',
+      '--text':'#f7e9f1','--text-dim':'#b49cae','--amber':'#f0c46a',
+      '--bg-grad':'radial-gradient(ellipse 110% 75% at 50% -8%, rgba(228,106,158,0.15), transparent 62%),' +
+                  'linear-gradient(180deg, #140e18, #0c080f)',
+      '--panel-grad':'linear-gradient(165deg, rgba(255,156,196,0.05), transparent 55%)',
+      '--radius':'16px','--glow':'rgba(228,106,158,0.38)',
+      '--border-strong':'rgba(255,156,196,0.5)','--accent-soft':'rgba(228,106,158,0.11)',
+      '--texture':'none',
+      '--nav-grad':'linear-gradient(180deg, rgba(16,11,19,0.99), rgba(16,11,19,0.93))',
+      '--shadow-lift':'0 12px 32px rgba(30,0,20,0.5)'
+    }
+  }
+};
+let customThemes = {}, activeThemeKey = 'autumn', particlesOn = true;
+
+function allThemes(){ return Object.assign({}, BUILT_IN_THEMES, customThemes); }
+function applyTheme(key, silent){
+  const th = allThemes()[key];
+  if(!th) return;
+  activeThemeKey = key;
+  const root = document.documentElement;
+  for(const k in th.vars) root.style.setProperty(k, th.vars[k]);
+  document.body.dataset.season = th.season || 'none';
+  try{ localStorage.setItem('vwa_theme', key); }catch(e){}
+  renderThemeGrid();
+  if(!silent && particlesOn) burstParticles(th.particle, 60);
+}
+function loadCustomThemes(){
+  try{ customThemes = JSON.parse(localStorage.getItem('vwa_themes_custom') || '{}'); }
+  catch(e){ customThemes = {}; }
+}
+function persistCustomThemes(){
+  try{ localStorage.setItem('vwa_themes_custom', JSON.stringify(customThemes)); }catch(e){}
+}
+function saveCurrentTheme(){
+  const nameEl = document.getElementById('tpName');
+  const name = nameEl.value.trim();
+  if(!name){ toast('Give the look a name first'); return; }
+  const base = allThemes()[activeThemeKey];
+  const key = 'c_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_');
+  customThemes[key] = { label:name, season:base.season, particle:base.particle,
+    vars:Object.assign({}, base.vars), custom:true };
+  persistCustomThemes();
+  nameEl.value = '';
+  renderThemeGrid();
+  toast('Saved "' + name + '" — it will stay in your list');
+}
+function deleteCustomTheme(key){
+  const t = customThemes[key];
+  if(!t) return;
+  if(!confirm('Delete the "' + t.label + '" theme?')) return;
+  delete customThemes[key];
+  persistCustomThemes();
+  if(activeThemeKey === key) applyTheme('autumn');
+  renderThemeGrid();
+}
+async function setSiteTheme(key){
+  applyTheme(key);
+  if(!isAdminViewer) return;
+  try{
+    await db.from('site_settings').upsert({ key:'site_theme', value:{ theme:key } }, { onConflict:'key' });
+    toast('Site theme set for everyone');
+  }catch(e){ toast('Saved locally — could not set it site-wide'); }
+}
+function swatchHtml(v){
+  return `<span class="tp-sw" style="background:${v['--gold']}"></span>
+          <span class="tp-sw" style="background:${v['--gold-bright']}"></span>
+          <span class="tp-sw" style="background:${v['--amber']}"></span>
+          <span class="tp-sw" style="background:${v['--panel-2']}"></span>`;
+}
+const SEASON_ICON = { fall:'🍂', winter:'❄️', spring:'🌸', summer:'☀️', none:'✦' };
+function renderThemeGrid(){
+  const el = document.getElementById('themeGrid');
+  if(!el) return;
+  const all = allThemes();
+  el.innerHTML = Object.entries(all).map(([k,t]) => `
+    <div class="tp-card ${k===activeThemeKey?'on':''}" onclick="setSiteTheme('${k}')">
+      <div class="tp-prev" style="background:${t.vars['--panel']}; border-color:${t.vars['--border']};">
+        <div class="tp-prev-bar" style="background:${t.vars['--gold']};"></div>
+        <div class="tp-prev-t" style="color:${t.vars['--canvas']};">${SEASON_ICON[t.season]||'✦'}</div>
+      </div>
+      <div class="tp-label">${esc(t.label)}${k===activeThemeKey?' ·  active':''}</div>
+      <div class="tp-sws">${swatchHtml(t.vars)}</div>
+      ${t.custom?`<button class="tp-del" onclick="event.stopPropagation();deleteCustomTheme('${k}')" title="Delete">✕</button>`:''}
+    </div>`).join('');
+  const note = document.getElementById('tpAdminNote');
+  if(note) note.textContent = isAdminViewer
+    ? 'You are signed in as an operator — picking a theme sets it for every visitor.'
+    : 'Your pick is remembered on this device.';
+}
+function openThemePanel(){
+  document.getElementById('themePanel').classList.add('open');
+  renderThemeGrid();
+}
+function closeThemePanel(){ document.getElementById('themePanel').classList.remove('open'); }
+function toggleParticles(){
+  particlesOn = document.getElementById('tpParticles').checked;
+  try{ localStorage.setItem('vwa_particles', particlesOn ? '1' : '0'); }catch(e){}
+  if(particlesOn) burstParticles(allThemes()[activeThemeKey].particle, 40);
+}
+
+/* ================= SEASONAL PARTICLES ================= */
+const LEAF_COLORS = ['#e0721f','#c8531c','#f0a13a','#a63c18','#d98a2b','#8a4a1e','#f2c14e'];
+const PETAL_COLORS = ['#ff9cc4','#e46a9e','#ffc2da','#c2405a','#ffe0ee'];
+const SNOW_COLORS = ['#ffffff','#dceeff','#b9dcf5'];
+const EMBER_COLORS = ['#ff6a2b','#ffa14a','#ffd08a','#c9331b'];
+let leafCanvas, leafCtx, particles = [], particleRAF = null, particleUntil = 0;
+
+function initParticles(){
+  leafCanvas = document.getElementById('leafLayer');
+  if(!leafCanvas) return;
+  leafCtx = leafCanvas.getContext('2d');
+  const size = () => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    leafCanvas.width = Math.round(innerWidth * dpr);
+    leafCanvas.height = Math.round(innerHeight * dpr);
+    leafCanvas.style.width = innerWidth + 'px';
+    leafCanvas.style.height = innerHeight + 'px';
+    leafCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  size();
+  addEventListener('resize', size);
+}
+function makeParticle(kind, W){
+  const base = {
+    x: Math.random()*W,
+    y: -40 - Math.random()*innerHeight*0.4,
+    rot: Math.random()*Math.PI*2,
+    vr: (Math.random()-0.5)*0.055,
+    sway: 0.6 + Math.random()*1.5,
+    phase: Math.random()*Math.PI*2,
+    life: 1
+  };
+  if(kind === 'snow') return Object.assign(base, {
+    kind, size: 3 + Math.random()*5, vy: 0.5 + Math.random()*0.9,
+    color: SNOW_COLORS[Math.floor(Math.random()*SNOW_COLORS.length)], spin:0 });
+  if(kind === 'petals') return Object.assign(base, {
+    kind, size: 7 + Math.random()*8, vy: 1.0 + Math.random()*1.3,
+    color: PETAL_COLORS[Math.floor(Math.random()*PETAL_COLORS.length)] });
+  if(kind === 'embers') return Object.assign(base, {
+    kind, size: 2 + Math.random()*3.4, vy: -(0.7 + Math.random()*1.4),
+    y: innerHeight + 20 + Math.random()*innerHeight*0.3,
+    color: EMBER_COLORS[Math.floor(Math.random()*EMBER_COLORS.length)] });
+  return Object.assign(base, {
+    kind:'leaves', size: 11 + Math.random()*15, vy: 1.1 + Math.random()*1.8,
+    color: LEAF_COLORS[Math.floor(Math.random()*LEAF_COLORS.length)],
+    flip: Math.random()*Math.PI*2, vflip: 0.02 + Math.random()*0.05 });
+}
+/* a real maple-ish leaf rather than a blob */
+function drawLeaf(ctx, p){
+  const s = p.size;
+  ctx.beginPath();
+  ctx.moveTo(0, -s*0.95);
+  ctx.bezierCurveTo(s*0.30, -s*0.70, s*0.34, -s*0.30, s*0.62, -s*0.34);
+  ctx.bezierCurveTo(s*0.44, -s*0.06, s*0.60, s*0.12, s*0.92, s*0.16);
+  ctx.bezierCurveTo(s*0.52, s*0.34, s*0.40, s*0.52, s*0.30, s*0.92);
+  ctx.bezierCurveTo(s*0.14, s*0.60, s*0.05, s*0.62, 0, s*0.62);
+  ctx.bezierCurveTo(-s*0.05, s*0.62, -s*0.14, s*0.60, -s*0.30, s*0.92);
+  ctx.bezierCurveTo(-s*0.40, s*0.52, -s*0.52, s*0.34, -s*0.92, s*0.16);
+  ctx.bezierCurveTo(-s*0.60, s*0.12, -s*0.44, -s*0.06, -s*0.62, -s*0.34);
+  ctx.bezierCurveTo(-s*0.34, -s*0.30, -s*0.30, -s*0.70, 0, -s*0.95);
+  ctx.closePath();
+  ctx.fill();
+  // stem + central vein
+  ctx.beginPath();
+  ctx.moveTo(0, s*0.62); ctx.lineTo(0, -s*0.55);
+  ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+  ctx.lineWidth = Math.max(0.7, s*0.055);
+  ctx.stroke();
+}
+function burstParticles(kind, count){
+  if(!leafCtx || !particlesOn || !kind || kind === 'none') return;
+  const W = innerWidth;
+  for(let i=0;i<count;i++) particles.push(makeParticle(kind, W));
+  particleUntil = performance.now() + 5200;   // "lasts a few seconds"
+  if(!particleRAF) particleRAF = requestAnimationFrame(stepParticles);
+}
+let lastPT = 0;
+function stepParticles(now){
+  const dt = Math.min(40, now - (lastPT || now)); lastPT = now;
+  const f = dt / 16.67;
+  leafCtx.clearRect(0, 0, innerWidth, innerHeight);
+  const fading = now > particleUntil;
+
+  for(let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.y += p.vy * f;
+    p.phase += 0.02 * f;
+    p.x += Math.sin(p.phase) * p.sway * f;
+    p.rot += p.vr * f;
+    if(p.kind === 'leaves') p.flip += p.vflip * f;
+    if(fading) p.life -= 0.012 * f;
+
+    const off = p.kind === 'embers' ? p.y < -30 : p.y > innerHeight + 50;
+    if(off || p.life <= 0){ particles.splice(i, 1); continue; }
+
+    leafCtx.save();
+    leafCtx.translate(p.x, p.y);
+    leafCtx.rotate(p.rot);
+    leafCtx.globalAlpha = Math.max(0, Math.min(1, p.life)) * (p.kind === 'embers' ? 0.9 : 0.92);
+    leafCtx.fillStyle = p.color;
+    if(p.kind === 'leaves'){
+      leafCtx.scale(Math.max(0.25, Math.abs(Math.cos(p.flip))), 1);   // tumbling in 3D
+      leafCtx.shadowColor = 'rgba(0,0,0,0.35)'; leafCtx.shadowBlur = 6; leafCtx.shadowOffsetY = 3;
+      drawLeaf(leafCtx, p);
+    } else if(p.kind === 'petals'){
+      leafCtx.scale(Math.max(0.3, Math.abs(Math.cos(p.flip || 0))), 1);
+      leafCtx.beginPath();
+      leafCtx.ellipse(0, 0, p.size*0.52, p.size*0.85, 0, 0, 7);
+      leafCtx.fill();
+    } else if(p.kind === 'snow'){
+      leafCtx.beginPath(); leafCtx.arc(0, 0, p.size*0.5, 0, 7); leafCtx.fill();
+    } else {
+      leafCtx.shadowColor = p.color; leafCtx.shadowBlur = p.size*3;
+      leafCtx.beginPath(); leafCtx.arc(0, 0, p.size*0.5, 0, 7); leafCtx.fill();
+    }
+    leafCtx.restore();
+  }
+
+  if(particles.length){ particleRAF = requestAnimationFrame(stepParticles); }
+  else { particleRAF = null; leafCtx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+function seasonalBurst(n){
+  const th = allThemes()[activeThemeKey];
+  if(th) burstParticles(th.particle, n || 34);
+}
+
+/* ================= boot ================= */
+let isAdminViewer = false;
+async function initTheming(){
+  loadCustomThemes();
+  try{ particlesOn = localStorage.getItem('vwa_particles') !== '0'; }catch(e){}
+  const pc = document.getElementById('tpParticles');
+  if(pc) pc.checked = particlesOn;
+  initParticles();
+
+  let key = null;
+  const urlT = new URLSearchParams(location.search).get('theme');
+  if(urlT) key = urlT;
+  if(!key){
+    try{
+      const { data } = await db.from('site_settings').select('*').eq('key','site_theme').maybeSingle();
+      if(data && data.value && data.value.theme) key = data.value.theme;
+    }catch(e){}
+  }
+  if(!key){ try{ key = localStorage.getItem('vwa_theme'); }catch(e){} }
+  if(!key || !allThemes()[key]) key = 'autumn';
+  applyTheme(key, true);
+  setTimeout(() => seasonalBurst(70), 350);
+}
+
 /* ---------------- BRANDING + STORYLINES ---------------- */
 let newsPosts = [], newsFilter = 'all';
 const KIND_LABELS = { social:'Social', article:'Article', interview:'Interview', promo:'Promo', announcement:'Announcement' };
@@ -2182,6 +2647,11 @@ window.addEventListener('error', dismissBoot);
 
   try{
     await refreshUser();
+    try{
+      const { data:adm } = await db.rpc('is_admin');
+      isAdminViewer = adm === true;
+      renderThemeGrid();
+    }catch(e){}
   }catch(e){ console.warn('auth unavailable', e); }
 
   try{
