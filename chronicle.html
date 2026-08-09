@@ -246,6 +246,29 @@
   .refsep{ color:var(--ink-faint); padding:0 2px; }
   .ix-letter{ font-family:'Cinzel',serif; font-size:13px; color:var(--acc);
     border-bottom:1px solid rgba(181,71,31,0.25); margin:9px 0 4px; letter-spacing:0.12em; }
+  .mth{ margin-bottom:6px; }
+  .mth-h{ font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px; }
+  .mth-r{ display:flex; align-items:baseline; gap:6px; font-size:clamp(11px,0.9vw,13px); padding:2px 0; }
+  .mth-d{ flex:1 1 auto; border-bottom:1px dotted rgba(120,90,50,0.35); transform:translateY(-3px); }
+  .mth-n{ font-family:'JetBrains Mono'; color:var(--acc); }
+  .lg-r{ display:flex; gap:8px; align-items:flex-start; padding:5px 0;
+    border-bottom:1px dotted rgba(120,90,50,0.25); }
+  .lg-r:last-child{ border-bottom:none; }
+  .lg-o{ font-size:clamp(11px,0.92vw,13.5px); }
+  .gl{ display:flex; gap:10px; align-items:flex-start; padding:8px 6px; margin:0 -6px;
+    border-bottom:1px dotted rgba(120,90,50,0.3); cursor:pointer; border-radius:5px; }
+  .gl:hover{ background:rgba(181,71,31,0.08); }
+  .gl-n{ font-family:'Cinzel',serif; font-size:14px; color:var(--acc); min-width:32px; }
+  .gl-t{ flex:1; min-width:0; }
+  .gl-name{ font-size:clamp(12px,1vw,14.5px); font-weight:600; }
+  .gl-me{ font-family:'Crimson Pro',serif; font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+  .gl-go{ color:var(--acc); font-size:14px; align-self:center; }
+  .rg{ display:flex; gap:10px; align-items:flex-start; padding:6px 0;
+    border-bottom:1px dotted rgba(120,90,50,0.28); }
+  .rg.cur{ background:rgba(217,168,64,0.13); margin:0 -8px; padding:8px; border-radius:5px; border-bottom:none; }
+  .rg-n{ font-family:'JetBrains Mono'; font-size:11px; color:var(--ink-faint); min-width:16px; }
+  .rg-w{ font-size:clamp(11.5px,0.95vw,14px); font-weight:600; }
+  .rg-c{ font-size:8.5px; letter-spacing:0.12em; text-transform:uppercase; color:#8a5a12; }
 </style>
 </head>
 <body>
@@ -254,6 +277,7 @@
   <div class="bk-t">The Chronicle<small>History of the Vigilance Wrestling Association</small></div>
   <div class="tools">
     <input id="q" placeholder="Find a name or match…" oninput="onSearch()">
+    <button class="b" onclick="gotoGlossary()">Glossary</button>
     <button class="b" onclick="openToc()">Contents</button>
     <button class="b" onclick="gotoIndex()">Index</button>
     <button class="b on" id="bSnd" onclick="toggleSound()">🔊 Pages</button>
@@ -547,79 +571,297 @@ function roman(n){
 
 
 /* ================================================================
-   THE INDEX — every person, title, stipulation and moment, gathered
-   alphabetically with the chapters they appear in. Built after the
-   chapters are flowed so it can carry real page references.
+   PROFILES — everything the record knows about one competitor.
+   Computed by walking the chapters in order, so streaks and firsts
+   are true to the moment they happened.
    ================================================================ */
-function buildIndexEntries(){
+const METHOD_LABEL = { pin:'Pinfall', sub:'Submission', ko:'Knockout', dq:'Disqualification',
+  co:'Countout', escape:'Escape', quit:'Stoppage', stip:'Stipulation', tbd:'Undecided' };
+
+function buildProfiles(){
+  const P = {};
+  const touch = id => {
+    if(!P[id]) P[id] = { id, name:nm(id), w:0, l:0, d:0, matches:0, ppvW:0, ppvL:0,
+      scored:{}, suffered:{}, streak:0, best:0, curStreak:0, opp:{}, log:[],
+      firstCh:null, lastCh:null, titleWins:[], titleLosses:[], defenses:0, mainEvents:0 };
+    return P[id];
+  };
+  const chrono = CHAPTERS.slice().sort((a,b) => a.number - b.number);
+
+  chrono.forEach(ch => {
+    const isPle = ch.show.show_type === 'ple';
+    ch.bouts.forEach(b => {
+      const m = b.m, S = b.sides;
+      const all = [...S.win, ...S.lose].filter(Boolean);
+      all.forEach(id => {
+        const e = touch(id);
+        if(e.firstCh === null) e.firstCh = ch.number;
+        e.lastCh = ch.number;
+        e.matches++;
+        if(b.isMain) e.mainEvents++;
+      });
+      const meth = m.method && m.method !== 'tbd' ? m.method : null;
+      const soloWin = S.win.length === 1;
+      const scorer = m.decision_winner || (soloWin ? S.win[0] : null);
+      const faller = m.decision_loser || (S.lose.length === 1 ? S.lose[0] : null);
+      const belt = m.title_id ? ((TITLES[m.title_id]||{}).name || 'Championship') : null;
+
+      S.win.forEach(id => {
+        const e = touch(id);
+        e.w++; e.streak++;
+        if(e.streak > e.best) e.best = e.streak;
+        if(isPle) e.ppvW++;
+        if(meth && (!scorer || scorer === id)) e.scored[meth] = (e.scored[meth]||0) + 1;
+        S.lose.forEach(o => { if(!o) return;
+          e.opp[o] = e.opp[o] || { w:0, l:0 }; e.opp[o].w++; });
+        if(belt) e.titleWins.push({ belt, ch:ch.number, page:null, from:S.lose.map(nm).join(' & ') });
+        e.log.push({ won:true, ch, b, opp:S.lose.map(nm).join(' & '), meth, belt,
+          tookFall:false, scoredFall: !!(meth && (!scorer || scorer === id)) });
+      });
+      S.lose.forEach(id => {
+        const e = touch(id);
+        e.l++; e.streak = 0;
+        if(isPle) e.ppvL++;
+        const took = !faller || faller === id;
+        if(meth && took) e.suffered[meth] = (e.suffered[meth]||0) + 1;
+        S.win.forEach(o => { if(!o) return;
+          e.opp[o] = e.opp[o] || { w:0, l:0 }; e.opp[o].l++; });
+        if(belt) e.titleLosses.push({ belt, ch:ch.number, to:S.win.map(nm).join(' & ') });
+        e.log.push({ won:false, ch, b, opp:S.win.map(nm).join(' & '), meth, belt,
+          tookFall: took, scoredFall:false });
+      });
+    });
+  });
+  Object.values(P).forEach(e => { e.curStreak = e.streak; });
+  return P;
+}
+/* title reigns straight from the recorded history table */
+function reignsFor(titleId){
+  return HIST.filter(h => h.title_id === titleId)
+    .sort((a,b) => String(a.won_date||'').localeCompare(String(b.won_date||'')))
+    .map(h => {
+      const start = h.won_date ? new Date(h.won_date) : null;
+      const endD = h.lost_date ? new Date(h.lost_date) : new Date();
+      const days = start ? Math.max(1, Math.round((endD - start)/86400000)) : null;
+      return { ...h, days, current: !h.lost_date };
+    });
+}
+
+/* ================================================================
+   BLOCK BUILDERS for the extra sections
+   ================================================================ */
+function methodTable(map, label){
+  const keys = Object.keys(map).sort((a,b) => map[b]-map[a]);
+  if(!keys.length) return `<div class="note"><span>${esc(label)}: none recorded.</span></div>`;
+  return `<div class="mth"><div class="mth-h">${esc(label)}</div>` +
+    keys.map(k => `<div class="mth-r"><span>${esc(METHOD_LABEL[k]||k)}</span>
+      <span class="mth-d"></span><span class="mth-n">${map[k]}</span></div>`).join('') + '</div>';
+}
+function dossierBlocks(e){
+  const B = [];
+  const total = e.w + e.l + e.d;
+  const rate = total ? Math.round(e.w/total*100) : 0;
+  const bio = WREST[e.id] || {};
+  B.push({ head:true, html:
+    `<div class="kind house">Competitor</div>
+     <h2 class="ch">${esc(e.name)}</h2>
+     <div class="ch-meta">${bio.nickname?'&ldquo;'+esc(bio.nickname)+'&rdquo; · ':''}${
+       e.firstCh?'First seen in Chapter '+roman(e.firstCh):'No appearances'}${
+       e.lastCh && e.lastCh!==e.firstCh?' · last in '+roman(e.lastCh):''}</div>` });
+
+  B.push({ html:`<div class="stat-row">
+    <div class="st"><div class="n">${e.w}&#8211;${e.l}${e.d?'&#8211;'+e.d:''}</div><div class="l">Record</div></div>
+    <div class="st"><div class="n">${rate}%</div><div class="l">Win rate</div></div>
+    <div class="st"><div class="n">${e.matches}</div><div class="l">Matches</div></div>
+    <div class="st"><div class="n">${e.best}</div><div class="l">Best run</div></div>
+    ${e.curStreak>1?`<div class="st"><div class="n">${e.curStreak}</div><div class="l">On a run</div></div>`:''}
+    ${e.mainEvents?`<div class="st"><div class="n">${e.mainEvents}</div><div class="l">Main events</div></div>`:''}
+    ${(e.ppvW+e.ppvL)?`<div class="st"><div class="n">${e.ppvW}&#8211;${e.ppvL}</div><div class="l">On PPV</div></div>`:''}
+  </div>` });
+
+  B.push({ html:`<div class="sec">How They Win</div>`, keep:true });
+  B.push({ html: methodTable(e.scored, 'Finishes scored') });
+  B.push({ html:`<div class="sec">How They Lose</div>`, keep:true });
+  B.push({ html: methodTable(e.suffered, 'Falls taken') });
+
+  if(e.titleWins.length || e.titleLosses.length){
+    B.push({ html:`<div class="sec">Championships</div>`, keep:true });
+    e.titleWins.forEach(t => B.push({ html:
+      `<div class="note"><span class="i">🏆</span><span>Won the <b>${esc(t.belt)}</b> in Chapter ${roman(t.ch)}, beating ${esc(t.from)}.</span></div>` }));
+    e.titleLosses.forEach(t => B.push({ html:
+      `<div class="note"><span class="i">🥀</span><span>Lost the <b>${esc(t.belt)}</b> in Chapter ${roman(t.ch)} to ${esc(t.to)}.</span></div>` }));
+  }
+
+  const rivals = Object.entries(e.opp).map(([id,r]) => ({ id, ...r, n:r.w+r.l }))
+    .sort((a,b) => b.n - a.n).slice(0, 6);
+  if(rivals.length){
+    B.push({ html:`<div class="sec">Who They've Faced</div>`, keep:true });
+    rivals.forEach(r => B.push({ html:`<div class="ix">
+      <span class="ix-name" onclick="gotoDossier('${esc(r.id)}')">${esc(nm(r.id))}</span>
+      <span class="ix-dots"></span>
+      <span class="ix-extra">${r.w}&#8211;${r.l} in ${r.n} meeting${r.n===1?'':'s'}</span></div>` }));
+  }
+
+  B.push({ html:`<div class="sec">Every Match</div>`, keep:true });
+  if(!e.log.length) B.push({ html:`<p class="pr">No recorded matches yet.</p>` });
+  e.log.forEach(g => {
+    const t = g.b.m.title_id ? (TITLES[g.b.m.title_id]||{}).name : null;
+    const detail = [
+      typeName(g.b.m.type_key),
+      g.meth ? (g.won ? (g.scoredFall ? 'won by '+ (METHOD_LABEL[g.meth]||g.meth) : 'team win')
+                      : (g.tookFall ? 'lost by '+(METHOD_LABEL[g.meth]||g.meth) : 'did not take the fall')) : null,
+      t ? '🏆 '+t : null
+    ].filter(Boolean).join(' · ');
+    B.push({ html:`<div class="lg-r">
+      <span class="chip ${g.won?'w':'l'}">${g.won?'W':'L'}</span>
+      <div class="lg-t">
+        <div class="lg-o">${g.won?'beat':'lost to'} ${esc(g.opp)}</div>
+        <div class="b-meta"><span class="ref" onclick="gotoChapter(${g.ch.number})">Ch. ${roman(g.ch.number)}</span> · ${esc(detail)}</div>
+      </div></div>` });
+  });
+  return B;
+}
+function championshipBlocks(t){
+  const B = [];
+  const reigns = reignsFor(t.id);
+  B.push({ head:true, html:
+    `<div class="kind ple">Championship</div>
+     <h2 class="ch">${esc(t.name)}</h2>
+     <div class="ch-meta">${reigns.length? reigns.length+' reign'+(reigns.length===1?'':'s')+' recorded' : 'No reigns recorded yet'}</div>` });
+  if(!reigns.length){
+    B.push({ html:`<p class="pr first">This championship has not yet been contested. When it is first won, the reign will be written here and the lineage will build itself from that night forward.</p>` });
+    return B;
+  }
+  const longest = reigns.slice().sort((a,b) => (b.days||0)-(a.days||0))[0];
+  const cur = reigns.find(r => r.current);
+  B.push({ html:`<div class="stat-row">
+    <div class="st"><div class="n">${reigns.length}</div><div class="l">Reigns</div></div>
+    <div class="st"><div class="n">${longest.days||0}</div><div class="l">Longest (days)</div></div>
+    ${cur?`<div class="st"><div class="n">${cur.days||0}</div><div class="l">Current reign</div></div>`:''}
+  </div>` });
+  B.push({ html:`<div class="sec">Lineage</div>`, keep:true });
+  reigns.forEach((r, i) => {
+    const won = r.won_date ? new Date(r.won_date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : '—';
+    const lost = r.lost_date ? new Date(r.lost_date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'present';
+    B.push({ html:`<div class="rg ${r.current?'cur':''}">
+      <span class="rg-n">${i+1}</span>
+      <div class="rg-t">
+        <div class="rg-w"><span class="ix-name" onclick="gotoDossier('${esc(r.wrestler_id)}')">${esc(r.wrestler_name || nm(r.wrestler_id))}</span>${r.current?' <span class="rg-c">current</span>':''}</div>
+        <div class="b-meta">${esc(won)} &ndash; ${esc(lost)} · ${r.days||0} day${r.days===1?'':'s'}${
+          r.won_method?' · won by '+esc(METHOD_LABEL[r.won_method]||r.won_method):''}${
+          r.lost_method?' · lost by '+esc(METHOD_LABEL[r.lost_method]||r.lost_method):''}</div>
+      </div></div>` });
+  });
+  return B;
+}
+/* ---------- the glossary: a browsable chapter directory ---------- */
+function glossaryBlocks(){
+  const B = [];
+  B.push({ head:true, html:
+    `<h2 class="ch">Glossary of Chapters</h2>
+     <div class="ch-meta">Every show in order — tap a line to turn straight to it</div>` });
+  const chrono = CHAPTERS.slice().sort((a,b) => a.number - b.number);
+  if(!chrono.length){
+    B.push({ html:`<p class="pr first">No shows have been recorded yet. Each one you run becomes a chapter here.</p>` });
+    return B;
+  }
+  let lastEra = null;
+  chrono.forEach(ch => {
+    const eid = ch.show.era_id || '_';
+    if(eid !== lastEra){
+      lastEra = eid;
+      const era = ERAS.find(e => e.id === eid);
+      B.push({ html:`<div class="sec">${esc(era ? era.name : 'Uncategorised')}</div>`, keep:true });
+    }
+    const d = showDate(ch.show);
+    const main = ch.bouts.find(b => b.isMain) || ch.bouts[ch.bouts.length-1];
+    const belts = ch.events.filter(e => e.kind === 'title').length;
+    const kind = ch.show.show_type === 'ple' ? 'PPV' : ch.show.show_type === 'house' ? 'House' : 'Weekly';
+    B.push({ html:`<div class="gl" onclick="gotoChapter(${ch.number})">
+      <span class="gl-n">${roman(ch.number)}</span>
+      <div class="gl-t">
+        <div class="gl-name">${esc(ch.show.chapter_title || ch.show.name)}</div>
+        <div class="b-meta">${esc(kind)} · ${d?esc(d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})):'undated'}${
+          ch.show.venue?' · '+esc(ch.show.venue):''} · ${ch.bouts.length} match${ch.bouts.length===1?'':'es'}${
+          belts?' · 🏆 '+belts:''}</div>
+        ${main?`<div class="gl-me">Main event: ${esc(main.sides.win.map(nm).join(' & '))} vs ${esc(main.sides.lose.map(nm).join(' & '))}</div>`:''}
+      </div>
+      <span class="gl-go">→</span>
+    </div>` });
+  });
+  return B;
+}
+/* ---------- the index: names only, links to their pages ---------- */
+function indexBlocks(){
   const people = {}, belts = {}, stips = {}, venues = {};
-  const ref = (bag, key, ch, page, role) => {
+  const ref = (bag, key, ch, page) => {
     if(!key) return;
-    if(!bag[key]) bag[key] = { key, hits:[], first:null, w:0, l:0 };
-    const e = bag[key];
-    if(!e.hits.some(h => h.n === ch.number)) e.hits.push({ n:ch.number, page });
-    if(e.first === null || ch.number < e.first) e.first = ch.number;
-    if(role === 'w') e.w++; else if(role === 'l') e.l++;
+    if(!bag[key]) bag[key] = { key, hits:[] };
+    if(!bag[key].hits.some(h => h.n === ch.number)) bag[key].hits.push({ n:ch.number, page });
   };
   TOC.forEach(t => {
-    const ch = t.ch, page = t.page;
-    ch.bouts.forEach(b => {
-      b.sides.win.forEach(id => ref(people, id, ch, page, 'w'));
-      b.sides.lose.forEach(id => ref(people, id, ch, page, 'l'));
-      if(b.m.title_id) ref(belts, b.m.title_id, ch, page);
-      if(b.m.type_key) ref(stips, b.m.type_key, ch, page);
+    t.ch.bouts.forEach(b => {
+      [...b.sides.win, ...b.sides.lose].forEach(id => ref(people, id, t.ch, t.page));
+      if(b.m.title_id) ref(belts, b.m.title_id, t.ch, t.page);
+      if(b.m.type_key) ref(stips, b.m.type_key, t.ch, t.page);
     });
-    if(ch.show.venue) ref(venues, ch.show.venue, ch, page);
+    if(t.ch.show.venue) ref(venues, t.ch.show.venue, t.ch, t.page);
   });
-
-  const sortByLabel = (a,b) => a.label.localeCompare(b.label);
-  const P = Object.values(people).map(e => Object.assign({}, e, {
-    label: nm(e.key), kind:'person' })).sort(sortByLabel);
-  const B = Object.values(belts).map(e => Object.assign({}, e, {
-    label: (TITLES[e.key]||{}).name || 'Championship', kind:'belt' })).sort(sortByLabel);
-  const S = Object.values(stips).map(e => Object.assign({}, e, {
-    label: typeName(e.key), kind:'stip' })).sort(sortByLabel);
-  const V = Object.values(venues).map(e => Object.assign({}, e, {
-    label: e.key, kind:'venue' })).sort(sortByLabel);
-  return { people:P, belts:B, stips:S, venues:V };
-}
-function refsHtml(hits){
-  return hits.slice().sort((a,b) => a.n - b.n).map(h =>
-    `<span class="ref" onclick="gotoPage(${h.page})" title="Go to chapter ${roman(h.n)}">${roman(h.n)}</span>`
-  ).join('<span class="refsep">·</span>');
-}
-function indexBlocks(){
-  const E = buildIndexEntries();
   const B = [];
   B.push({ head:true, html:
     `<h2 class="ch">Index</h2>
-     <div class="ch-meta">Every name, title and stipulation in the Chronicle · numerals are chapters — tap one to turn there</div>` });
+     <div class="ch-meta">Names open their own pages · stipulations and venues point at chapters</div>` });
 
-  const section = (title, list, extra) => {
-    if(!list.length) return;
-    B.push({ html:`<div class="sec">${esc(title)}</div>`, keep:true });
+  // competitors — no numerals, straight to the dossier
+  const pl = Object.keys(people).map(id => ({ id, label:nm(id) }))
+    .sort((a,b) => a.label.localeCompare(b.label));
+  if(pl.length){
+    B.push({ html:`<div class="sec">Competitors</div>`, keep:true });
     let letter = null;
-    list.forEach(e => {
-      const L = (e.label[0] || '#').toUpperCase();
+    pl.forEach(e => {
+      const L = (e.label[0]||'#').toUpperCase();
       if(L !== letter){ letter = L; B.push({ html:`<div class="ix-letter">${esc(letter)}</div>` }); }
+      const pr = PROFILES[e.id];
       B.push({ html:`<div class="ix">
-        <span class="ix-name" onclick="gotoPage(${(e.hits[0]||{}).page || 0})">${esc(e.label)}</span>
-        ${extra ? `<span class="ix-extra">${extra(e)}</span>` : ''}
+        <span class="ix-name" onclick="gotoDossier('${esc(e.id)}')">${esc(e.label)}</span>
         <span class="ix-dots"></span>
-        <span class="ix-refs">${refsHtml(e.hits)}</span>
+        <span class="ix-extra">${pr?pr.w+'&#8211;'+pr.l:''}</span>
+        <span class="ix-refs"><span class="ref" onclick="gotoDossier('${esc(e.id)}')">page &rsaquo;</span></span>
       </div>` });
     });
-  };
-  section('Competitors', E.people, e => {
-    const t = e.w + e.l;
-    return t ? `${e.w}&#8211;${e.l}` : '';
-  });
-  section('Championships', E.belts);
-  section('Match Stipulations', E.stips);
-  section('Venues', E.venues);
-
-  if(!E.people.length && !E.belts.length){
-    B.push({ html:'<p class="pr">Nothing has been recorded yet. The index fills itself as shows are run.</p>' });
+  }
+  const bl = Object.keys(belts).map(id => ({ id, label:(TITLES[id]||{}).name || 'Championship' }))
+    .sort((a,b) => a.label.localeCompare(b.label));
+  const allTitles = Object.keys(TITLES).map(id => ({ id, label:TITLES[id].name }))
+    .sort((a,b) => a.label.localeCompare(b.label));
+  const beltList = allTitles.length ? allTitles : bl;
+  if(beltList.length){
+    B.push({ html:`<div class="sec">Championships</div>`, keep:true });
+    beltList.forEach(e => B.push({ html:`<div class="ix">
+      <span class="ix-name" onclick="gotoTitle('${esc(e.id)}')">${esc(e.label)}</span>
+      <span class="ix-dots"></span>
+      <span class="ix-refs"><span class="ref" onclick="gotoTitle('${esc(e.id)}')">page &rsaquo;</span></span>
+    </div>` }));
+  }
+  const refsHtml = hits => hits.slice().sort((a,b)=>a.n-b.n).map(h =>
+    `<span class="ref" onclick="gotoPage(${h.page})">${roman(h.n)}</span>`).join('<span class="refsep">·</span>');
+  const sl = Object.values(stips).map(e => ({ ...e, label:typeName(e.key) }))
+    .sort((a,b) => a.label.localeCompare(b.label));
+  if(sl.length){
+    B.push({ html:`<div class="sec">Match Stipulations</div>`, keep:true });
+    sl.forEach(e => B.push({ html:`<div class="ix">
+      <span class="ix-name" style="cursor:default;">${esc(e.label)}</span>
+      <span class="ix-dots"></span>
+      <span class="ix-refs">${refsHtml(e.hits)}</span></div>` }));
+  }
+  const vl = Object.values(venues).map(e => ({ ...e, label:e.key }))
+    .sort((a,b) => a.label.localeCompare(b.label));
+  if(vl.length){
+    B.push({ html:`<div class="sec">Venues</div>`, keep:true });
+    vl.forEach(e => B.push({ html:`<div class="ix">
+      <span class="ix-name" style="cursor:default;">${esc(e.label)}</span>
+      <span class="ix-dots"></span>
+      <span class="ix-refs">${refsHtml(e.hits)}</span></div>` }));
   }
   return B;
 }
@@ -628,7 +870,7 @@ function indexBlocks(){
    PAGINATION — flow content blocks into real fixed-height pages by
    measuring them, so nothing ever overflows a page edge.
    ================================================================ */
-let PAGES = [], LEAF_COUNT = 0, spread = 0, CHAPTERS = [], TOC = [], INDEX_PAGE = 0;
+let PAGES = [], LEAF_COUNT = 0, spread = 0, CHAPTERS = [], TOC = [], PROFILES = {};
 
 function blocksForChapter(ch, chapterNo){
   const sh = ch.show;
@@ -700,9 +942,14 @@ function standingsSentence(ch){
     'Record board: ' + rows.map(r => `${nm(r.id)} ${r.w}-${r.l}`).join(', ') + '.';
 }
 
-/* measure a page's usable height once, then flow blocks into pages */
+/* measure once, then flow blocks into real pages.
+   The glossary sits at the front but needs the page numbers of things
+   that come after it, so the body is laid out first and the glossary
+   is measured separately, then everything shifts by its length. */
+let DOSSIER_PAGE = {}, TITLE_PAGE = {}, INDEX_PAGE = 0, GLOSSARY_PAGE = 2, CHAPTER_PAGE = {};
+
 function paginate(){
-  PAGES = []; TOC = [];
+  PAGES = []; TOC = []; DOSSIER_PAGE = {}; TITLE_PAGE = {}; CHAPTER_PAGE = {};
   const probe = document.createElement('div');
   probe.className = 'face recto';
   probe.style.cssText = 'position:fixed; left:-9999px; top:0; width:' + pageW() + 'px; height:' + pageH() + 'px;';
@@ -711,58 +958,87 @@ function paginate(){
   const body = probe.querySelector('#probeBody');
   const limit = body.clientHeight;
 
-  // front matter
-  PAGES.push({ type:'cover' });
-  PAGES.push({ type:'title' });
-
-  const chrono = CHAPTERS.slice().sort((a,b) => a.number - b.number);
-  const eraOf = id => ERAS.find(e => e.id === id);
-  let lastEra = null;
-
-  chrono.forEach(ch => {
-    const eid = ch.show.era_id || '_';
-    if(eid !== lastEra){
-      lastEra = eid;
-      const era = eraOf(eid);
-      PAGES.push({ type:'era', era, count: chrono.filter(c => (c.show.era_id||'_') === eid).length });
-    }
-    const startPage = PAGES.length;
-    const blocks = blocksForChapter(ch, ch.number);
+  const flowInto = (arr, blocks, meta) => {
     let cur = [];
-    const flush = () => { if(cur.length){ PAGES.push({ type:'text', ch, html:cur.join('') }); cur = []; } };
-    blocks.forEach((blk, i) => {
-      const test = cur.concat(blk.html).join('');
-      body.innerHTML = test;
-      if(body.scrollHeight > limit && cur.length){
-        // a section heading should never be stranded at the foot of a page
-        if(blk.keep){ flush(); }
-        else { flush(); }
-        body.innerHTML = blk.html;
-      }
-      cur.push(blk.html);
-    });
-    flush();
-    TOC.push({ ch, page: startPage, era: eraOf(eid) });
-  });
-
-  // the index goes at the back, like a real book
-  INDEX_PAGE = PAGES.length;
-  const ixBlocks = indexBlocks();
-  {
-    let cur = [];
-    const flush = () => { if(cur.length){ PAGES.push({ type:'index', html:cur.join('') }); cur = []; } };
-    ixBlocks.forEach(blk => {
+    const flush = () => { if(cur.length){ arr.push(Object.assign({ html:cur.join('') }, meta)); cur = []; } };
+    blocks.forEach(blk => {
       body.innerHTML = cur.concat(blk.html).join('');
       if(body.scrollHeight > limit && cur.length){ flush(); body.innerHTML = blk.html; }
       cur.push(blk.html);
     });
     flush();
+    return arr;
+  };
+
+  /* ---- phase 1: the body, numbered from zero ---- */
+  const bodyPages = [];
+  const chrono = CHAPTERS.slice().sort((a,b) => a.number - b.number);
+  let lastEra = null;
+  chrono.forEach(ch => {
+    const eid = ch.show.era_id || '_';
+    if(eid !== lastEra){
+      lastEra = eid;
+      bodyPages.push({ type:'era', era: ERAS.find(e => e.id === eid),
+        count: chrono.filter(c => (c.show.era_id||'_') === eid).length });
+    }
+    const at = bodyPages.length;
+    flowInto(bodyPages, blocksForChapter(ch), { type:'text', ch });
+    CHAPTER_PAGE[ch.number] = at;
+    TOC.push({ ch, page: at, era: ERAS.find(e => e.id === eid) });
+  });
+
+  // dossiers, alphabetical
+  const people = Object.values(PROFILES).sort((a,b) => a.name.localeCompare(b.name));
+  if(people.length){
+    bodyPages.push({ type:'divider', title:'The Competitors',
+      sub:'A page for everyone who has stepped through the curtain' });
+    people.forEach(e => {
+      DOSSIER_PAGE[e.id] = bodyPages.length;
+      flowInto(bodyPages, dossierBlocks(e), { type:'dossier', who:e.id });
+    });
+  }
+  // championships
+  const titles = Object.keys(TITLES).map(id => TITLES[id]);
+  if(titles.length){
+    bodyPages.push({ type:'divider', title:'The Championships',
+      sub:'Every belt and the hands it has passed through' });
+    titles.sort((a,b) => a.name.localeCompare(b.name)).forEach(t => {
+      TITLE_PAGE[t.id] = bodyPages.length;
+      flowInto(bodyPages, championshipBlocks(t), { type:'title', which:t.id });
+    });
+  }
+  const indexAt = bodyPages.length;
+  flowInto(bodyPages, indexBlocks(), { type:'index' });
+
+  const baseCh = Object.assign({}, CHAPTER_PAGE);
+  const baseDoss = Object.assign({}, DOSSIER_PAGE);
+  const baseTitle = Object.assign({}, TITLE_PAGE);
+  const baseToc = TOC.map(t => t.page);
+
+  /* ---- phase 2: the glossary, then shift every reference ---- */
+  let glossary = [], guess = 1;
+  for(let pass = 0; pass < 5; pass++){
+    const offset = 2 + guess;                 // cover + title + glossary length
+    applyOffset(offset, indexAt);
+    glossary = flowInto([], glossaryBlocks(), { type:'glossary' });
+    if(glossary.length === guess) break;
+    guess = glossary.length;
   }
 
-  PAGES.push({ type:'end' });
+  PAGES = [{ type:'cover' }, { type:'title' }, ...glossary, ...bodyPages, { type:'end' }];
   if(PAGES.length % 2 !== 0) PAGES.push({ type:'blank' });
   probe.remove();
   LEAF_COUNT = Math.ceil(PAGES.length / 2);
+
+  function applyOffset(off, ix){
+    GLOSSARY_PAGE = 2;
+    INDEX_PAGE = ix + off;
+    Object.keys(CHAPTER_PAGE).forEach(k => { CHAPTER_PAGE[k] = baseCh[k] + off; });
+    Object.keys(DOSSIER_PAGE).forEach(k => { DOSSIER_PAGE[k] = baseDoss[k] + off; });
+    Object.keys(TITLE_PAGE).forEach(k => { TITLE_PAGE[k] = baseTitle[k] + off; });
+    TOC.forEach((t,i) => { t.page = baseToc[i] + off; });
+  }
+  function snapshot(){ }
 }
 function pageW(){
   const bk = document.getElementById('book');
@@ -806,6 +1082,27 @@ function pageInner(p, index){
       <img class="crest" src="${LOGO}" alt="">
     </div></div>`;
   if(p.type === 'blank') return `<div class="pg"></div>`;
+  if(p.type === 'divider') return `<div class="pg"><div class="tp">
+      <div class="rule"></div>
+      <div class="big">${esc(p.title)}</div>
+      <div class="desc">${esc(p.sub)}</div>
+      <div class="rule"></div>
+    </div></div>`;
+  if(p.type === 'glossary') return `<div class="pg">
+      <div class="run"><span>Glossary</span><span class="r">The Chronicle</span></div>
+      <div class="pgbody">${p.html}</div>
+      <div class="folio">${index + 1}</div>
+    </div>`;
+  if(p.type === 'dossier') return `<div class="pg">
+      <div class="run"><span>${esc((PROFILES[p.who]||{}).name || 'Competitor')}</span><span class="r">The Competitors</span></div>
+      <div class="pgbody">${p.html}</div>
+      <div class="folio">${index + 1}</div>
+    </div>`;
+  if(p.type === 'title') return `<div class="pg">
+      <div class="run"><span>${esc((TITLES[p.which]||{}).name || 'Championship')}</span><span class="r">The Championships</span></div>
+      <div class="pgbody">${p.html}</div>
+      <div class="folio">${index + 1}</div>
+    </div>`;
   if(p.type === 'index') return `<div class="pg">
       <div class="run"><span>Index</span><span class="r">The Chronicle</span></div>
       <div class="pgbody">${p.html}</div>
@@ -907,6 +1204,10 @@ function openToc(){
 }
 function closeToc(){ document.getElementById('tocPop').classList.remove('open'); }
 function gotoIndex(){ gotoPage(INDEX_PAGE); closeToc(); }
+function gotoGlossary(){ gotoPage(GLOSSARY_PAGE); closeToc(); }
+function gotoDossier(id){ if(DOSSIER_PAGE[id] !== undefined) gotoPage(DOSSIER_PAGE[id]); }
+function gotoTitle(id){ if(TITLE_PAGE[id] !== undefined) gotoPage(TITLE_PAGE[id]); }
+function gotoChapter(n){ if(CHAPTER_PAGE[n] !== undefined) gotoPage(CHAPTER_PAGE[n]); }
 let searchTimer = null;
 function onSearch(){
   clearTimeout(searchTimer);
@@ -920,14 +1221,12 @@ function onSearch(){
       return c.bouts.some(b => [...b.sides.win, ...b.sides.lose].map(nm).join(' ').toLowerCase().includes(q)
         || typeName(b.m.type_key).toLowerCase().includes(q));
     });
-    if(hit) gotoPage(hit.page);
+    if(hit){ gotoPage(hit.page); return; }
+    const who = Object.values(PROFILES).find(pp => pp.name.toLowerCase().includes(q));
+    if(who) gotoDossier(who.id);
   }, 260);
 }
-function openThread(id){
-  const hit = TOC.find(t => t.ch.bouts.some(b =>
-    b.sides.win.includes(id) || b.sides.lose.includes(id)));
-  if(hit) gotoPage(hit.page);
-}
+function openThread(id){ gotoDossier(id); }
 /* ---------------- input ---------------- */
 function bindInput(){
   addEventListener('keydown', e => {
@@ -955,6 +1254,7 @@ function bindInput(){
 let rebuildTimer = null;
 function rebuild(keep){
   const before = spread;
+  PROFILES = buildProfiles();
   paginate();
   buildLeaves();
   spread = keep ? Math.min(before, LEAF_COUNT) : before;
@@ -963,6 +1263,7 @@ function rebuild(keep){
 (async function init(){
   await load();
   CHAPTERS = buildHistory();
+  PROFILES = buildProfiles();
   rebuild();
 
   const wantShow = qs.get('show');
