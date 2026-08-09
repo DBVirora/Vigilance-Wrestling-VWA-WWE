@@ -235,6 +235,17 @@
     .block-l,.block-r{ display:none; } .spine{ display:none; }
     p.pr{ text-align:left; }
   }
+  .ix{ display:flex; align-items:baseline; gap:6px; padding:3px 0; font-size:clamp(11px,0.92vw,13.5px); }
+  .ix-name{ font-family:'Crimson Pro',serif; color:var(--ink); cursor:pointer; font-weight:600; }
+  .ix-name:hover{ color:var(--acc); text-decoration:underline; }
+  .ix-extra{ font-family:'JetBrains Mono'; font-size:9.5px; color:var(--ink-faint); }
+  .ix-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(120,90,50,0.4); transform:translateY(-3px); min-width:14px; }
+  .ix-refs{ font-family:'Cinzel',serif; font-size:11px; color:var(--acc); white-space:nowrap; }
+  .ref{ cursor:pointer; padding:0 1px; }
+  .ref:hover{ color:var(--gilt); text-decoration:underline; }
+  .refsep{ color:var(--ink-faint); padding:0 2px; }
+  .ix-letter{ font-family:'Cinzel',serif; font-size:13px; color:var(--acc);
+    border-bottom:1px solid rgba(181,71,31,0.25); margin:9px 0 4px; letter-spacing:0.12em; }
 </style>
 </head>
 <body>
@@ -244,6 +255,7 @@
   <div class="tools">
     <input id="q" placeholder="Find a name or match…" oninput="onSearch()">
     <button class="b" onclick="openToc()">Contents</button>
+    <button class="b" onclick="gotoIndex()">Index</button>
     <button class="b on" id="bSnd" onclick="toggleSound()">🔊 Pages</button>
   </div>
 </div>
@@ -533,11 +545,90 @@ function roman(n){
   return out || 'I';
 }
 
+
+/* ================================================================
+   THE INDEX — every person, title, stipulation and moment, gathered
+   alphabetically with the chapters they appear in. Built after the
+   chapters are flowed so it can carry real page references.
+   ================================================================ */
+function buildIndexEntries(){
+  const people = {}, belts = {}, stips = {}, venues = {};
+  const ref = (bag, key, ch, page, role) => {
+    if(!key) return;
+    if(!bag[key]) bag[key] = { key, hits:[], first:null, w:0, l:0 };
+    const e = bag[key];
+    if(!e.hits.some(h => h.n === ch.number)) e.hits.push({ n:ch.number, page });
+    if(e.first === null || ch.number < e.first) e.first = ch.number;
+    if(role === 'w') e.w++; else if(role === 'l') e.l++;
+  };
+  TOC.forEach(t => {
+    const ch = t.ch, page = t.page;
+    ch.bouts.forEach(b => {
+      b.sides.win.forEach(id => ref(people, id, ch, page, 'w'));
+      b.sides.lose.forEach(id => ref(people, id, ch, page, 'l'));
+      if(b.m.title_id) ref(belts, b.m.title_id, ch, page);
+      if(b.m.type_key) ref(stips, b.m.type_key, ch, page);
+    });
+    if(ch.show.venue) ref(venues, ch.show.venue, ch, page);
+  });
+
+  const sortByLabel = (a,b) => a.label.localeCompare(b.label);
+  const P = Object.values(people).map(e => Object.assign({}, e, {
+    label: nm(e.key), kind:'person' })).sort(sortByLabel);
+  const B = Object.values(belts).map(e => Object.assign({}, e, {
+    label: (TITLES[e.key]||{}).name || 'Championship', kind:'belt' })).sort(sortByLabel);
+  const S = Object.values(stips).map(e => Object.assign({}, e, {
+    label: typeName(e.key), kind:'stip' })).sort(sortByLabel);
+  const V = Object.values(venues).map(e => Object.assign({}, e, {
+    label: e.key, kind:'venue' })).sort(sortByLabel);
+  return { people:P, belts:B, stips:S, venues:V };
+}
+function refsHtml(hits){
+  return hits.slice().sort((a,b) => a.n - b.n).map(h =>
+    `<span class="ref" onclick="gotoPage(${h.page})" title="Go to chapter ${roman(h.n)}">${roman(h.n)}</span>`
+  ).join('<span class="refsep">·</span>');
+}
+function indexBlocks(){
+  const E = buildIndexEntries();
+  const B = [];
+  B.push({ head:true, html:
+    `<h2 class="ch">Index</h2>
+     <div class="ch-meta">Every name, title and stipulation in the Chronicle · numerals are chapters — tap one to turn there</div>` });
+
+  const section = (title, list, extra) => {
+    if(!list.length) return;
+    B.push({ html:`<div class="sec">${esc(title)}</div>`, keep:true });
+    let letter = null;
+    list.forEach(e => {
+      const L = (e.label[0] || '#').toUpperCase();
+      if(L !== letter){ letter = L; B.push({ html:`<div class="ix-letter">${esc(letter)}</div>` }); }
+      B.push({ html:`<div class="ix">
+        <span class="ix-name" onclick="gotoPage(${(e.hits[0]||{}).page || 0})">${esc(e.label)}</span>
+        ${extra ? `<span class="ix-extra">${extra(e)}</span>` : ''}
+        <span class="ix-dots"></span>
+        <span class="ix-refs">${refsHtml(e.hits)}</span>
+      </div>` });
+    });
+  };
+  section('Competitors', E.people, e => {
+    const t = e.w + e.l;
+    return t ? `${e.w}&#8211;${e.l}` : '';
+  });
+  section('Championships', E.belts);
+  section('Match Stipulations', E.stips);
+  section('Venues', E.venues);
+
+  if(!E.people.length && !E.belts.length){
+    B.push({ html:'<p class="pr">Nothing has been recorded yet. The index fills itself as shows are run.</p>' });
+  }
+  return B;
+}
+
 /* ================================================================
    PAGINATION — flow content blocks into real fixed-height pages by
    measuring them, so nothing ever overflows a page edge.
    ================================================================ */
-let PAGES = [], LEAF_COUNT = 0, spread = 0, CHAPTERS = [], TOC = [];
+let PAGES = [], LEAF_COUNT = 0, spread = 0, CHAPTERS = [], TOC = [], INDEX_PAGE = 0;
 
 function blocksForChapter(ch, chapterNo){
   const sh = ch.show;
@@ -654,6 +745,20 @@ function paginate(){
     TOC.push({ ch, page: startPage, era: eraOf(eid) });
   });
 
+  // the index goes at the back, like a real book
+  INDEX_PAGE = PAGES.length;
+  const ixBlocks = indexBlocks();
+  {
+    let cur = [];
+    const flush = () => { if(cur.length){ PAGES.push({ type:'index', html:cur.join('') }); cur = []; } };
+    ixBlocks.forEach(blk => {
+      body.innerHTML = cur.concat(blk.html).join('');
+      if(body.scrollHeight > limit && cur.length){ flush(); body.innerHTML = blk.html; }
+      cur.push(blk.html);
+    });
+    flush();
+  }
+
   PAGES.push({ type:'end' });
   if(PAGES.length % 2 !== 0) PAGES.push({ type:'blank' });
   probe.remove();
@@ -701,6 +806,11 @@ function pageInner(p, index){
       <img class="crest" src="${LOGO}" alt="">
     </div></div>`;
   if(p.type === 'blank') return `<div class="pg"></div>`;
+  if(p.type === 'index') return `<div class="pg">
+      <div class="run"><span>Index</span><span class="r">The Chronicle</span></div>
+      <div class="pgbody">${p.html}</div>
+      <div class="folio">${index + 1}</div>
+    </div>`;
   const sh = p.ch.show;
   const side = index % 2 === 0 ? 'r' : 'l';
   return `<div class="pg">
@@ -796,6 +906,7 @@ function openToc(){
   document.getElementById('tocPop').classList.add('open');
 }
 function closeToc(){ document.getElementById('tocPop').classList.remove('open'); }
+function gotoIndex(){ gotoPage(INDEX_PAGE); closeToc(); }
 let searchTimer = null;
 function onSearch(){
   clearTimeout(searchTimer);
