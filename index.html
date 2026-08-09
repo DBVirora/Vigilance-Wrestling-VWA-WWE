@@ -691,45 +691,6 @@
   body[data-season="winter"] .navbrand img{ filter:drop-shadow(0 2px 12px rgba(90,168,216,0.6)); }
   body[data-season="spring"] .navbrand img{ filter:drop-shadow(0 2px 12px rgba(228,106,158,0.6)); }
 
-  /* ============ THEME PANEL ============ */
-  .themepanel{ position:fixed; inset:0; z-index:320; background:rgba(6,4,3,0.74);
-    display:none; align-items:flex-start; justify-content:center; padding-top:9vh;
-    backdrop-filter:blur(5px); }
-  .themepanel.open{ display:flex; }
-  .tp-box{ width:min(760px, 94vw); background:var(--panel); border:1px solid var(--border-strong);
-    border-radius:calc(var(--radius) + 2px); overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.65); }
-  .tp-head{ display:flex; align-items:center; padding:16px 20px; border-bottom:1px solid var(--panel-3);
-    font-family:var(--heading-font); font-size:14px; letter-spacing:0.14em; text-transform:uppercase;
-    color:var(--gold-bright); }
-  .tp-x{ margin-left:auto; background:none; border:1px solid var(--border); color:var(--text-dim);
-    width:28px; height:28px; border-radius:50%; cursor:pointer; }
-  .tp-x:hover{ border-color:var(--gold); color:var(--gold-bright); }
-  .tp-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(148px,1fr)); gap:12px;
-    padding:18px 20px; max-height:56vh; overflow-y:auto; }
-  .tp-card{ position:relative; background:var(--panel-2); border:1px solid var(--border);
-    border-radius:11px; padding:10px; cursor:pointer; transition:border-color .16s, transform .16s; }
-  .tp-card:hover{ transform:translateY(-2px); border-color:var(--border-strong); }
-  .tp-card.on{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 8px 22px var(--glow); }
-  .tp-prev{ position:relative; height:58px; border-radius:8px; border:1px solid; overflow:hidden;
-    display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
-  .tp-prev-bar{ position:absolute; left:0; right:0; top:0; height:5px; }
-  .tp-prev-t{ font-size:20px; }
-  .tp-label{ font-size:12px; color:var(--canvas); font-family:var(--heading-font);
-    letter-spacing:0.05em; text-transform:uppercase; }
-  .tp-sws{ display:flex; gap:3px; margin-top:6px; }
-  .tp-sw{ width:14px; height:8px; border-radius:2px; }
-  .tp-del{ position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
-    background:var(--panel-3); border:1px solid var(--border); color:var(--text-dim);
-    font-size:10px; cursor:pointer; }
-  .tp-del:hover{ color:#e05c5c; border-color:#e05c5c; }
-  .tp-foot{ padding:14px 20px 18px; border-top:1px solid var(--panel-3); }
-  .tp-row{ display:flex; gap:8px; margin-bottom:10px; }
-  .tp-row input{ flex:1; background:var(--panel-3); border:1px solid var(--border); border-radius:8px;
-    color:var(--text); padding:8px 12px; font-family:inherit; font-size:13px; outline:none; }
-  .tp-row input:focus{ border-color:var(--gold); }
-  .tp-chk{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); cursor:pointer; }
-  .tp-chk input{ accent-color:var(--gold); }
-  .tp-note{ font-size:11px; color:var(--text-dim); margin-top:8px; line-height:1.5; }
   @media(prefers-reduced-motion:reduce){ #leafLayer{ display:none; } }
 </style>
 </head>
@@ -784,28 +745,9 @@
     <button class="navsearch" onclick="openPalette()" title="Search — press / or Ctrl+K">
       <span>Search</span><kbd>/</kbd>
     </button>
-    <button class="navsearch" onclick="openThemePanel()" title="Change the site theme" style="padding:7px 11px;">🍂</button>
     <div id="navAuth"></div>
   </div>
 </nav>
-
-<div class="themepanel" id="themePanel" onclick="if(event.target===this) closeThemePanel()">
-  <div class="tp-box">
-    <div class="tp-head">
-      <span>Site Theme</span>
-      <button class="tp-x" onclick="closeThemePanel()">✕</button>
-    </div>
-    <div class="tp-grid" id="themeGrid"></div>
-    <div class="tp-foot">
-      <div class="tp-row">
-        <input type="text" id="tpName" placeholder="Name this look…" maxlength="30">
-        <button class="btn small" onclick="saveCurrentTheme()">Save current</button>
-      </div>
-      <label class="tp-chk"><input type="checkbox" id="tpParticles" checked onchange="toggleParticles()"> Seasonal effects on page change</label>
-      <div class="tp-note" id="tpAdminNote"></div>
-    </div>
-  </div>
-</div>
 
 <div class="palette" id="palette" onclick="if(event.target===this) closePalette()">
   <div class="pal-box">
@@ -2086,89 +2028,14 @@ const BUILT_IN_THEMES = {
 let customThemes = {}, activeThemeKey = 'autumn', particlesOn = true;
 
 function allThemes(){ return Object.assign({}, BUILT_IN_THEMES, customThemes); }
-function applyTheme(key, silent){
-  const th = allThemes()[key];
-  if(!th) return;
-  activeThemeKey = key;
+/* The look is whatever the operator set in the admin panel. Visitors
+   cannot change it — there is no local preference and no override. */
+function applyTheme(key){
+  const th = allThemes()[key] || BUILT_IN_THEMES.autumn;
+  activeThemeKey = allThemes()[key] ? key : 'autumn';
   const root = document.documentElement;
   for(const k in th.vars) root.style.setProperty(k, th.vars[k]);
   document.body.dataset.season = th.season || 'none';
-  try{ localStorage.setItem('vwa_theme', key); }catch(e){}
-  renderThemeGrid();
-  if(!silent && particlesOn) burstParticles(th.particle, 60);
-}
-function loadCustomThemes(){
-  try{ customThemes = JSON.parse(localStorage.getItem('vwa_themes_custom') || '{}'); }
-  catch(e){ customThemes = {}; }
-}
-function persistCustomThemes(){
-  try{ localStorage.setItem('vwa_themes_custom', JSON.stringify(customThemes)); }catch(e){}
-}
-function saveCurrentTheme(){
-  const nameEl = document.getElementById('tpName');
-  const name = nameEl.value.trim();
-  if(!name){ toast('Give the look a name first'); return; }
-  const base = allThemes()[activeThemeKey];
-  const key = 'c_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_');
-  customThemes[key] = { label:name, season:base.season, particle:base.particle,
-    vars:Object.assign({}, base.vars), custom:true };
-  persistCustomThemes();
-  nameEl.value = '';
-  renderThemeGrid();
-  toast('Saved "' + name + '" — it will stay in your list');
-}
-function deleteCustomTheme(key){
-  const t = customThemes[key];
-  if(!t) return;
-  if(!confirm('Delete the "' + t.label + '" theme?')) return;
-  delete customThemes[key];
-  persistCustomThemes();
-  if(activeThemeKey === key) applyTheme('autumn');
-  renderThemeGrid();
-}
-async function setSiteTheme(key){
-  applyTheme(key);
-  if(!isAdminViewer) return;
-  try{
-    await db.from('site_settings').upsert({ key:'site_theme', value:{ theme:key } }, { onConflict:'key' });
-    toast('Site theme set for everyone');
-  }catch(e){ toast('Saved locally — could not set it site-wide'); }
-}
-function swatchHtml(v){
-  return `<span class="tp-sw" style="background:${v['--gold']}"></span>
-          <span class="tp-sw" style="background:${v['--gold-bright']}"></span>
-          <span class="tp-sw" style="background:${v['--amber']}"></span>
-          <span class="tp-sw" style="background:${v['--panel-2']}"></span>`;
-}
-const SEASON_ICON = { fall:'🍂', winter:'❄️', spring:'🌸', summer:'☀️', none:'✦' };
-function renderThemeGrid(){
-  const el = document.getElementById('themeGrid');
-  if(!el) return;
-  const all = allThemes();
-  el.innerHTML = Object.entries(all).map(([k,t]) => `
-    <div class="tp-card ${k===activeThemeKey?'on':''}" onclick="setSiteTheme('${k}')">
-      <div class="tp-prev" style="background:${t.vars['--panel']}; border-color:${t.vars['--border']};">
-        <div class="tp-prev-bar" style="background:${t.vars['--gold']};"></div>
-        <div class="tp-prev-t" style="color:${t.vars['--canvas']};">${SEASON_ICON[t.season]||'✦'}</div>
-      </div>
-      <div class="tp-label">${esc(t.label)}${k===activeThemeKey?' ·  active':''}</div>
-      <div class="tp-sws">${swatchHtml(t.vars)}</div>
-      ${t.custom?`<button class="tp-del" onclick="event.stopPropagation();deleteCustomTheme('${k}')" title="Delete">✕</button>`:''}
-    </div>`).join('');
-  const note = document.getElementById('tpAdminNote');
-  if(note) note.textContent = isAdminViewer
-    ? 'You are signed in as an operator — picking a theme sets it for every visitor.'
-    : 'Your pick is remembered on this device.';
-}
-function openThemePanel(){
-  document.getElementById('themePanel').classList.add('open');
-  renderThemeGrid();
-}
-function closeThemePanel(){ document.getElementById('themePanel').classList.remove('open'); }
-function toggleParticles(){
-  particlesOn = document.getElementById('tpParticles').checked;
-  try{ localStorage.setItem('vwa_particles', particlesOn ? '1' : '0'); }catch(e){}
-  if(particlesOn) burstParticles(allThemes()[activeThemeKey].particle, 40);
 }
 
 /* ================= SEASONAL PARTICLES ================= */
@@ -2298,27 +2165,23 @@ function seasonalBurst(n){
 }
 
 /* ================= boot ================= */
-let isAdminViewer = false;
 async function initTheming(){
-  loadCustomThemes();
-  try{ particlesOn = localStorage.getItem('vwa_particles') !== '0'; }catch(e){}
-  const pc = document.getElementById('tpParticles');
-  if(pc) pc.checked = particlesOn;
   initParticles();
-
-  let key = null;
-  const urlT = new URLSearchParams(location.search).get('theme');
-  if(urlT) key = urlT;
-  if(!key){
-    try{
-      const { data } = await db.from('site_settings').select('*').eq('key','site_theme').maybeSingle();
-      if(data && data.value && data.value.theme) key = data.value.theme;
-    }catch(e){}
-  }
-  if(!key){ try{ key = localStorage.getItem('vwa_theme'); }catch(e){} }
-  if(!key || !allThemes()[key]) key = 'autumn';
-  applyTheme(key, true);
-  setTimeout(() => seasonalBurst(70), 350);
+  let key = 'autumn', wantParticles = true;
+  try{
+    const [{ data:cfg }, { data:cust }] = await Promise.all([
+      db.from('site_settings').select('*').eq('key','site_theme').maybeSingle(),
+      db.from('site_settings').select('*').eq('key','custom_themes').maybeSingle()
+    ]);
+    if(cust && cust.value && typeof cust.value === 'object') customThemes = cust.value;
+    if(cfg && cfg.value){
+      if(cfg.value.theme) key = cfg.value.theme;
+      if(cfg.value.particles === false) wantParticles = false;
+    }
+  }catch(e){ /* offline — fall back to the built-in default */ }
+  particlesOn = wantParticles;
+  applyTheme(key);
+  if(particlesOn) setTimeout(() => seasonalBurst(70), 350);
 }
 
 /* ---------------- BRANDING + STORYLINES ---------------- */
