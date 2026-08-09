@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VWA — The Chronicle</title>
+<!--
+  THE CHRONICLE — a bound 3D history book of the VWA.
+  Upload alongside index.html as  chronicle.html
+
+  ?demo=1     sample history, works with no database
+  ?show=<id>  open to that chapter
+  ?w=<id>     open a wrestler's thread
+  ?mute=1     start with page sounds off
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Oswald:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#3a2a17; --ink-soft:#6b5537; --ink-faint:#9c8560;
+    --paper:#f2e4c9; --paper-2:#e9d9ba; --paper-edge:#d8c39c;
+    --leather:#3a1d10; --leather-2:#572c17; --gilt:#d9a840; --acc:#b5471f;
+    --win:#3f6b41; --loss:#9c3b34;
+    --room:#140d09;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; overflow:hidden; }
+  body{ background:var(--room); font-family:'Oswald',sans-serif; color:#f4e9d8;
+    background-image:
+      radial-gradient(ellipse 90% 60% at 50% 0%, rgba(224,114,38,0.16), transparent 62%),
+      radial-gradient(ellipse 120% 80% at 50% 120%, rgba(90,40,10,0.35), transparent 60%);
+    display:flex; flex-direction:column; }
+
+  /* ---------- chrome ---------- */
+  .top{ flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:11px clamp(12px,2.4vw,28px);
+    background:linear-gradient(180deg, rgba(14,9,6,0.94), rgba(14,9,6,0.6) 70%, transparent);
+    z-index:60; flex-wrap:wrap; }
+  .back{ display:flex; align-items:center; gap:8px; color:#f4e9d8; text-decoration:none;
+    border:1px solid rgba(217,168,64,0.35); border-radius:9px; padding:6px 12px 6px 9px;
+    font-size:11px; letter-spacing:0.09em; text-transform:uppercase; background:rgba(0,0,0,0.28); }
+  .back:hover{ border-color:var(--gilt); }
+  .back img{ height:22px; }
+  .bk-t{ font-family:'Cinzel',serif; font-size:15px; color:var(--gilt); letter-spacing:0.09em; }
+  .bk-t small{ display:block; font-family:'Oswald'; font-size:8px; letter-spacing:0.24em;
+    color:rgba(244,233,216,0.5); text-transform:uppercase; margin-top:2px; }
+  .tools{ margin-left:auto; display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+  select,.b{ background:rgba(0,0,0,0.32); border:1px solid rgba(217,168,64,0.3); color:#f4e9d8;
+    padding:6px 11px; border-radius:8px; font-family:'Oswald'; font-size:11px; letter-spacing:0.07em;
+    text-transform:uppercase; cursor:pointer; outline:none; }
+  select:hover,.b:hover{ border-color:var(--gilt); color:var(--gilt); }
+  .b.on{ border-color:var(--gilt); color:var(--gilt); background:rgba(217,168,64,0.14); }
+  #q{ background:rgba(0,0,0,0.32); border:1px solid rgba(217,168,64,0.3); color:#f4e9d8;
+    padding:6px 11px; border-radius:8px; font-family:'Oswald'; font-size:12px; min-width:140px;
+    outline:none; text-transform:none; }
+  #q:focus{ border-color:var(--gilt); }
+
+  /* ---------- the book ---------- */
+  .stage{ flex:1 1 auto; display:flex; align-items:center; justify-content:center;
+    perspective:2600px; perspective-origin:50% 46%; padding:4px clamp(8px,2vw,34px) 8px; min-height:0; }
+  .book{ position:relative; transform-style:preserve-3d;
+    width:min(1180px, 96vw); aspect-ratio:1.52/1; max-height:100%;
+    transform:rotateX(7deg); transition:transform .6s ease; }
+  .book.closed{ transform:rotateX(12deg) scale(0.94); }
+
+  /* desk shadow under the book */
+  .book::after{ content:''; position:absolute; left:4%; right:4%; bottom:-4%; height:9%;
+    background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.62), transparent 72%);
+    filter:blur(7px); transform:translateZ(-40px); }
+
+  .board{ position:absolute; inset:0; display:flex; border-radius:6px 12px 12px 6px;
+    background:linear-gradient(160deg, var(--leather-2), var(--leather));
+    box-shadow:0 26px 70px rgba(0,0,0,0.65), inset 0 0 60px rgba(0,0,0,0.45);
+    overflow:hidden; }
+  .board::before{ content:''; position:absolute; inset:0;
+    background-image:repeating-linear-gradient(122deg, rgba(255,220,170,0.03) 0 2px, transparent 2px 6px),
+      repeating-linear-gradient(38deg, rgba(0,0,0,0.05) 0 3px, transparent 3px 9px); }
+  .spine{ position:absolute; left:50%; top:0; bottom:0; width:26px; transform:translateX(-50%);
+    background:linear-gradient(90deg, rgba(0,0,0,0.55), rgba(0,0,0,0.14) 35%, rgba(0,0,0,0.14) 65%, rgba(0,0,0,0.55));
+    z-index:45; pointer-events:none; }
+  .spine::after{ content:''; position:absolute; left:50%; top:0; bottom:0; width:1px;
+    background:rgba(0,0,0,0.6); transform:translateX(-50%); }
+  /* paper block thickness on both sides */
+  .block-l,.block-r{ position:absolute; top:1.5%; bottom:1.5%; width:9px; z-index:2;
+    background:repeating-linear-gradient(180deg, var(--paper-edge) 0 1px, var(--paper-2) 1px 3px); }
+  .block-l{ left:1.4%; border-radius:3px 0 0 3px; }
+  .block-r{ right:1.4%; border-radius:0 3px 3px 0; }
+
+  .leaves{ position:absolute; left:1.6%; right:1.6%; top:1.8%; bottom:1.8%;
+    transform-style:preserve-3d; }
+  .leaf{ position:absolute; top:0; bottom:0; left:50%; width:50%;
+    transform-origin:left center; transform-style:preserve-3d;
+    transition:transform 1.05s cubic-bezier(.32,.72,.28,1); }
+  .leaf.flipped{ transform:rotateY(-180deg); }
+  .face{ position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+    background:var(--paper); overflow:hidden; }
+  .face.recto{ border-radius:0 8px 8px 0;
+    background-image:linear-gradient(90deg, rgba(120,90,50,0.20) 0 1.4%, rgba(0,0,0,0) 7%),
+      radial-gradient(ellipse 130% 100% at 0% 50%, rgba(150,115,70,0.10), transparent 55%); }
+  .face.verso{ transform:rotateY(180deg); border-radius:8px 0 0 8px;
+    background-image:linear-gradient(270deg, rgba(120,90,50,0.20) 0 1.4%, rgba(0,0,0,0) 7%),
+      radial-gradient(ellipse 130% 100% at 100% 50%, rgba(150,115,70,0.10), transparent 55%); }
+  .face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.55;
+    background-image:
+      repeating-linear-gradient(102deg, rgba(150,110,60,0.030) 0 2px, transparent 2px 6px),
+      radial-gradient(circle at 22% 18%, rgba(160,120,60,0.06), transparent 26%),
+      radial-gradient(circle at 78% 74%, rgba(160,120,60,0.05), transparent 24%); }
+
+  .pg{ position:relative; z-index:2; height:100%; display:flex; flex-direction:column;
+    padding:clamp(16px,2.1vw,34px) clamp(18px,2.4vw,40px) clamp(26px,2.6vw,44px); color:var(--ink); }
+  .run{ flex:0 0 auto; display:flex; align-items:baseline; gap:8px;
+    font-size:8.5px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-faint);
+    border-bottom:1px solid rgba(120,90,50,0.22); padding-bottom:7px; margin-bottom:12px; }
+  .run .r{ margin-left:auto; }
+  .pgbody{ flex:1 1 auto; min-height:0; overflow:hidden; }
+  .folio{ position:absolute; left:0; right:0; bottom:clamp(9px,1.2vw,16px); text-align:center;
+    font-family:'JetBrains Mono'; font-size:9.5px; color:var(--ink-faint); }
+
+  /* page content */
+  h2.ch{ font-family:'Cinzel',serif; font-size:clamp(17px,1.75vw,25px); line-height:1.15;
+    color:var(--ink); margin-bottom:4px; }
+  .ch-meta{ font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft);
+    margin-bottom:12px; }
+  .kind{ display:inline-block; font-size:8px; letter-spacing:0.16em; text-transform:uppercase;
+    padding:2px 8px; border-radius:9px; margin-bottom:7px; border:1px solid; }
+  .kind.ple{ color:#8a5a12; border-color:rgba(180,130,40,0.5); background:rgba(217,168,64,0.16); }
+  .kind.weekly{ color:#8a3f1a; border-color:rgba(181,71,31,0.4); background:rgba(181,71,31,0.10); }
+  .kind.house{ color:var(--ink-soft); border-color:rgba(120,90,50,0.35); background:rgba(120,90,50,0.08); }
+  p.pr{ font-family:'Crimson Pro',serif; font-size:clamp(12.5px,1.05vw,15.5px); line-height:1.78;
+    margin-bottom:10px; text-align:justify; hyphens:auto; }
+  p.pr.first::first-letter{ font-family:'Cinzel',serif; font-size:2.9em; float:left; line-height:0.86;
+    padding:2px 7px 0 0; color:var(--acc); }
+  .sec{ font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:0.19em; text-transform:uppercase;
+    color:var(--acc); margin:14px 0 8px; padding-bottom:5px;
+    border-bottom:1px solid rgba(181,71,31,0.28); }
+  .bout{ padding:7px 0; border-bottom:1px dotted rgba(120,90,50,0.3); }
+  .bout:last-child{ border-bottom:none; }
+  .bout.main{ background:rgba(217,168,64,0.14); margin:0 -8px; padding:8px; border-radius:5px;
+    border-bottom:none; }
+  .b-line{ font-size:clamp(11.5px,0.95vw,14px); }
+  .b-w{ color:var(--win); font-weight:600; cursor:pointer; }
+  .b-w:hover{ text-decoration:underline; }
+  .b-l{ color:var(--loss); cursor:pointer; }
+  .b-meta{ font-size:9.5px; color:var(--ink-faint); margin-top:2px; letter-spacing:0.05em;
+    text-transform:uppercase; }
+  .b-belt{ color:#8a5a12; }
+  .note{ display:flex; gap:8px; padding:6px 0; font-family:'Crimson Pro',serif;
+    font-size:clamp(11.5px,0.95vw,14px); line-height:1.6; color:var(--ink-soft); }
+  .note .i{ flex:0 0 auto; }
+  .mom{ border-left:3px solid var(--acc); padding:6px 0 6px 10px; margin-bottom:8px; }
+  .mom .h{ font-size:12.5px; font-weight:600; color:var(--ink); }
+  .mom .b{ font-family:'Crimson Pro',serif; font-size:13px; line-height:1.65; color:var(--ink-soft); }
+  .mom img{ width:100%; border-radius:5px; margin-top:6px; border:1px solid rgba(120,90,50,0.3); }
+  .stat-row{ display:flex; gap:7px; flex-wrap:wrap; margin:8px 0; }
+  .st{ border:1px solid rgba(120,90,50,0.3); border-radius:7px; padding:6px 11px; background:rgba(255,255,255,0.22); }
+  .st .n{ font-family:'JetBrains Mono'; font-size:14px; color:var(--acc); }
+  .st .l{ font-size:8px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-faint); }
+  .chip{ display:inline-flex; width:18px; height:18px; border-radius:5px; align-items:center;
+    justify-content:center; font-family:'JetBrains Mono'; font-size:9px; font-weight:700; margin-right:5px; }
+  .chip.w{ background:rgba(63,107,65,0.20); color:var(--win); }
+  .chip.l{ background:rgba(156,59,52,0.18); color:var(--loss); }
+
+  /* title / era pages */
+  .tp{ height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:9px; }
+  .tp .crest{ width:min(180px,42%); filter:drop-shadow(0 6px 18px rgba(80,40,0,0.4)); }
+  .tp .big{ font-family:'Cinzel',serif; font-size:clamp(20px,2.6vw,38px); color:var(--ink); line-height:1.1; }
+  .tp .sm{ font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:var(--ink-soft); }
+  .tp .rule{ width:44%; height:1px; background:linear-gradient(90deg, transparent, var(--acc), transparent); }
+  .tp .desc{ font-family:'Crimson Pro',serif; font-size:14px; line-height:1.8; color:var(--ink-soft);
+    max-width:74%; }
+  .vol{ font-family:'Cinzel',serif; font-size:clamp(30px,4vw,62px); color:rgba(181,71,31,0.28); }
+
+  /* covers */
+  .cover{ position:absolute; inset:0; background:linear-gradient(150deg, var(--leather-2), var(--leather) 70%);
+    border-radius:0 10px 10px 0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:14px; box-shadow:inset 0 0 70px rgba(0,0,0,0.55); }
+  .cover::before{ content:''; position:absolute; inset:14px; border:2px solid rgba(217,168,64,0.42);
+    border-radius:4px; }
+  .cover::after{ content:''; position:absolute; inset:21px; border:1px solid rgba(217,168,64,0.22);
+    border-radius:3px; }
+  .cover img{ width:min(210px,44%); position:relative; z-index:2;
+    filter:drop-shadow(0 8px 26px rgba(0,0,0,0.6)); }
+  .cover .ct{ position:relative; z-index:2; font-family:'Cinzel',serif; font-size:clamp(20px,2.5vw,36px);
+    color:var(--gilt); letter-spacing:0.1em; text-shadow:0 2px 10px rgba(0,0,0,0.7); }
+  .cover .cs{ position:relative; z-index:2; font-size:9.5px; letter-spacing:0.34em; text-transform:uppercase;
+    color:rgba(217,168,64,0.72); }
+
+  /* click zones + controls */
+  .zone{ position:absolute; top:0; bottom:0; width:16%; z-index:50; cursor:pointer; }
+  .zone.l{ left:0; } .zone.r{ right:0; }
+  .zone::after{ content:''; position:absolute; top:44%; height:12%; width:26px;
+    opacity:0; transition:opacity .18s; }
+  .zone:hover::after{ opacity:1; }
+  .bar{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:6px 16px 14px; z-index:60; flex-wrap:wrap; }
+  .nav{ background:rgba(0,0,0,0.34); border:1px solid rgba(217,168,64,0.32); color:#f4e9d8;
+    width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:15px; }
+  .nav:hover{ border-color:var(--gilt); color:var(--gilt); }
+  .nav:disabled{ opacity:0.3; cursor:default; }
+  .prog{ min-width:170px; max-width:44vw; height:4px; background:rgba(255,255,255,0.12);
+    border-radius:2px; overflow:hidden; }
+  .prog i{ display:block; height:100%; background:linear-gradient(90deg, var(--acc), var(--gilt)); width:0; transition:width .4s; }
+  .cnt{ font-family:'JetBrains Mono'; font-size:11px; color:rgba(244,233,216,0.65); min-width:74px; text-align:center; }
+  .hint{ font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase; color:rgba(244,233,216,0.34); }
+
+  .toc-pop{ position:fixed; inset:0; z-index:200; background:rgba(8,5,3,0.8); display:none;
+    align-items:flex-start; justify-content:center; padding-top:8vh; backdrop-filter:blur(5px); }
+  .toc-pop.open{ display:flex; }
+  .toc-box{ width:min(620px,92vw); background:var(--paper); color:var(--ink); border-radius:12px;
+    overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.7); max-height:76vh; display:flex; flex-direction:column; }
+  .toc-h{ padding:15px 20px; border-bottom:1px solid rgba(120,90,50,0.25);
+    font-family:'Cinzel',serif; font-size:14px; letter-spacing:0.14em; text-transform:uppercase; display:flex; }
+  .toc-h button{ margin-left:auto; background:none; border:1px solid rgba(120,90,50,0.35);
+    width:26px; height:26px; border-radius:50%; cursor:pointer; color:var(--ink-soft); }
+  .toc-l{ overflow-y:auto; padding:8px 0; }
+  .toc-i{ display:flex; gap:12px; align-items:baseline; padding:9px 20px; cursor:pointer; }
+  .toc-i:hover{ background:rgba(181,71,31,0.09); }
+  .toc-i .rn{ font-family:'Cinzel',serif; color:var(--acc); min-width:34px; font-size:13px; }
+  .toc-i .tt{ font-size:13.5px; }
+  .toc-i .dt{ margin-left:auto; font-size:10.5px; color:var(--ink-faint); font-family:'JetBrains Mono'; }
+  .toc-era{ padding:12px 20px 5px; font-size:9px; letter-spacing:0.2em; text-transform:uppercase;
+    color:var(--ink-faint); border-top:1px solid rgba(120,90,50,0.18); margin-top:5px; }
+
+  .loading{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:300;
+    background:var(--room); color:var(--gilt); font-family:'Cinzel'; font-size:15px; letter-spacing:0.3em; }
+  .banner{ position:fixed; left:50%; transform:translateX(-50%); bottom:10px; z-index:150;
+    background:rgba(217,168,64,0.14); border:1px solid rgba(217,168,64,0.45); color:var(--gilt);
+    padding:7px 14px; border-radius:18px; font-size:10.5px; }
+  #measure{ position:fixed; left:-9999px; top:0; visibility:hidden; }
+  @media(max-width:820px){
+    .book{ aspect-ratio:0.78/1; }
+    .leaf{ left:0; width:100%; }
+    .face.verso{ border-radius:8px; } .face.recto{ border-radius:8px; }
+    .block-l,.block-r{ display:none; } .spine{ display:none; }
+    p.pr{ text-align:left; }
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html"><span>←</span><img id="crest" alt=""><span>VWA</span></a>
+  <div class="bk-t">The Chronicle<small>History of the Vigilance Wrestling Association</small></div>
+  <div class="tools">
+    <input id="q" placeholder="Find a name or match…" oninput="onSearch()">
+    <button class="b" onclick="openToc()">Contents</button>
+    <button class="b on" id="bSnd" onclick="toggleSound()">🔊 Pages</button>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="book closed" id="book">
+    <div class="board">
+      <div class="block-l"></div><div class="block-r"></div>
+    </div>
+    <div class="leaves" id="leaves"></div>
+    <div class="spine"></div>
+    <div class="zone l" onclick="prevPage()"></div>
+    <div class="zone r" onclick="nextPage()"></div>
+  </div>
+</div>
+
+<div class="bar">
+  <button class="nav" id="navP" onclick="prevPage()">‹</button>
+  <div class="prog"><i id="progI"></i></div>
+  <span class="cnt" id="cnt">—</span>
+  <button class="nav" id="navN" onclick="nextPage()">›</button>
+  <span class="hint">Click the page edges · ← → keys · swipe</span>
+</div>
+
+<div class="toc-pop" id="tocPop" onclick="if(event.target===this) closeToc()">
+  <div class="toc-box">
+    <div class="toc-h">Table of Contents <button onclick="closeToc()">✕</button></div>
+    <div class="toc-l" id="tocList"></div>
+  </div>
+</div>
+
+<div id="measure"></div>
+<div class="loading" id="loading">BINDING THE CHRONICLE…</div>
+
+<script>
+const SUPA_URL = 'https://yrshjuzumevawnoihxee.supabase.co';
+const SUPA_KEY = 'sb_publishable_InTnMqGlp3uoEz8--XKhQA_mix-bBGs';
+const LOGO = 'https://raw.githubusercontent.com/DBVirora/Vigilance-Wrestling-VWA-WWE/refs/heads/main/images%20folder/craiyon_174442_image.png';
+document.getElementById('crest').src = LOGO;
+const qs = new URLSearchParams(location.search);
+const METHOD = { pin:'pinfall', sub:'submission', ko:'knockout', dq:'disqualification',
+  co:'countout', escape:'escape', quit:'submission by stoppage', stip:'the stipulation', tbd:'a decision' };
+const TYPE = {};   // filled from data below where available
+
+/* ---------------- demo history ---------------- */
+const DEMO = {
+  eras:[{ id:'founding', name:'The Founding Era', subtitle:'Where it all begins',
+    description:'No champions, no history, no safety net. Every match writes the record for the first time.',
+    color:'#e07226', accent:'#f0b64c', sort_order:1 }],
+  wrestlers:[
+    {id:'w1',name:'Magnus Volkov'},{id:'w2',name:'Billy'},{id:'w3',name:'Big Scorch'},
+    {id:'w4',name:'EK Prosper'},{id:'w5',name:'Virora'},{id:'w6',name:'Raven'}
+  ],
+  titles:[{id:'t1',name:'VWA World Championship'}],
+  shows:[
+    { id:'s1', name:'Vigilance Wrestling Association #1', show_type:'ple', date:'2026-07-21',
+      venue:'VWA Gym', era_id:'founding', chapter_title:'The Night It Began',
+      chronicle_intro:'Nobody had a record. Nobody had a reputation. Eight competitors walked into a gym in Florida and the entire history of this company started from zero.',
+      chronicle_outro:'By the end of the night the first names on the board belonged to Magnus Volkov and Billy — and everyone else had ground to make up.' },
+    { id:'s2', name:'Vigilance Wrestling Association #2', show_type:'weekly', date:'2026-08-08',
+      venue:'VWA Gym', era_id:'founding', chapter_title:'Building The Ladder' }
+  ],
+  matches:[
+    { id:'m1', show_id:'s1', position:1, mode:'singles', type_key:'falls_count_anywhere', revealed:true, resolved:true,
+      p1:'w1', p2:'w3', winner:'w1', loser:'w3', method:'pin' },
+    { id:'m2', show_id:'s1', position:2, mode:'singles', type_key:'underground', revealed:true, resolved:true,
+      p1:'w2', p2:'w4', winner:'w2', loser:'w4', method:'sub' },
+    { id:'m3', show_id:'s1', position:3, mode:'singles', type_key:'singles', revealed:true, resolved:true,
+      p1:'w5', p2:'w6', winner:'w5', loser:'w6', method:'pin', is_main_event:true },
+    { id:'m4', show_id:'s2', position:1, mode:'singles', type_key:'table_match', revealed:true, resolved:true,
+      p1:'w3', p2:'w4', winner:'w3', loser:'w4', method:'stip' },
+    { id:'m5', show_id:'s2', position:2, mode:'singles', type_key:'underground', revealed:true, resolved:true,
+      p1:'w6', p2:'w5', winner:'w6', loser:'w5', method:'ko', is_main_event:true }
+  ],
+  history:[], ratings:[{match_id:'m3', avg_stars:4.5, votes:6},{match_id:'m5', avg_stars:5, votes:4}],
+  moments:[{ id:'x1', show_id:'s1', kind:'milestone', headline:'The first bell in company history',
+    body:'Magnus Volkov and Big Scorch opened the promotion with a Falls Count Anywhere match that spilled out of the ring inside ninety seconds.' }]
+};
+
+let ERAS=[], SHOWS=[], MATCHES=[], WREST={}, TITLES={}, HIST=[], RATINGS={}, MOMENTS=[];
+let openSet = new Set(), threadId = null, searchTerm = '', expandedAll = false, isDemo = false;
+
+/* ---------------- data ---------------- */
+async function load(){
+  if(qs.get('demo') === '1'){ useDemo(); return; }
+  try{
+    const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const [e, s, m, w, t, h, r, mo] = await Promise.all([
+      db.from('eras').select('*').order('sort_order'),
+      db.from('v_public_shows').select('*'),
+      db.from('v_public_matches').select('*').order('position'),
+      db.from('wrestlers').select('id,name,photo_url,nickname'),
+      db.from('titles').select('id,name'),
+      db.from('title_history').select('*').order('won_date'),
+      db.from('v_match_ratings').select('*'),
+      db.from('chronicle_moments').select('*').order('sort_order')
+    ]);
+    if(s.error || !s.data) throw new Error('no shows');
+    ERAS = e.data || [];
+    SHOWS = (s.data || []);
+    MATCHES = (m.data || []).filter(x => x.revealed);
+    (w.data || []).forEach(x => WREST[x.id] = x);
+    (t.data || []).forEach(x => TITLES[x.id] = x);
+    HIST = h.data || [];
+    (r.data || []).forEach(x => RATINGS[x.match_id] = x);
+    MOMENTS = mo.data || [];
+    if(!SHOWS.length) throw new Error('empty');
+    isDemo = false;
+  }catch(err){ useDemo(); }
+}
+function useDemo(){
+  ERAS = DEMO.eras; SHOWS = DEMO.shows; MATCHES = DEMO.matches;
+  DEMO.wrestlers.forEach(x => WREST[x.id] = x);
+  DEMO.titles.forEach(x => TITLES[x.id] = x);
+  HIST = DEMO.history; MOMENTS = DEMO.moments;
+  DEMO.ratings.forEach(x => RATINGS[x.match_id] = x);
+  isDemo = true;
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nm = id => (WREST[id] || {}).name || 'a competitor';
+const typeName = k => String(k||'').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+function showDate(s){ return s.date ? new Date(s.date + 'T12:00:00') : null; }
+function fmtDate(d){ return d ? d.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric', year:'numeric'}) : 'Date unrecorded'; }
+
+/* ================================================================
+   THE ENGINE — walk the shows in order, building a running picture
+   of the promotion so each chapter knows what came before it.
+   ================================================================ */
+function buildHistory(){
+  const chrono = SHOWS.slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  const rec = {};            // wrestler → { w, l, streak, best, matches }
+  const beltHolder = {};     // title → wrestler
+  const seen = new Set();    // who has appeared
+  const chapters = [];
+
+  chrono.forEach((sh, idx) => {
+    const ms = MATCHES.filter(m => m.show_id === sh.id)
+      .sort((a,b) => (a.position||0) - (b.position||0));
+    const events = [];       // machine-detected notes for this show
+    const bouts = [];
+
+    ms.forEach((m, bi) => {
+      const sides = sideOf(m);
+      const winners = sides.win, losers = sides.lose;
+      [...winners, ...losers].forEach(id => {
+        if(!id) return;
+        if(!rec[id]) rec[id] = { w:0, l:0, streak:0, best:0, matches:0 };
+        if(!seen.has(id)){
+          seen.add(id);
+          events.push({ kind:'debut', who:id,
+            text: nm(id) + ' appeared for the first time.' });
+        }
+      });
+
+      // upset detection uses the record as it stood BEFORE this match
+      const strongestLoser = losers.reduce((acc,id) =>
+        (rec[id] && rec[id].w > (acc.w ?? -1)) ? { id, w:rec[id].w } : acc, { id:null, w:-1 });
+      const topWinner = winners[0];
+      if(topWinner && strongestLoser.id && rec[topWinner] &&
+         strongestLoser.w >= rec[topWinner].w + 2){
+        events.push({ kind:'upset', who:topWinner,
+          text: nm(topWinner) + ' beat ' + nm(strongestLoser.id) +
+                ', who came in with the better record.' });
+      }
+
+      // streaks
+      losers.forEach(id => {
+        if(!id) return;
+        if(rec[id].streak >= 3){
+          events.push({ kind:'streak', who:id,
+            text: nm(id) + "'s " + rec[id].streak + '-match winning run ended here.' });
+        }
+        rec[id].streak = 0; rec[id].l++; rec[id].matches++;
+      });
+      winners.forEach(id => {
+        if(!id) return;
+        rec[id].w++; rec[id].matches++; rec[id].streak++;
+        if(rec[id].streak > rec[id].best) rec[id].best = rec[id].streak;
+        if(rec[id].streak === 3){
+          events.push({ kind:'streak', who:id, text: nm(id) + ' made it three straight.' });
+        } else if(rec[id].streak >= 5){
+          events.push({ kind:'streak', who:id,
+            text: nm(id) + ' extended the run to ' + rec[id].streak + '.' });
+        }
+      });
+
+      // titles
+      if(m.title_id){
+        const t = TITLES[m.title_id] || { name:'a championship' };
+        const prev = beltHolder[m.title_id];
+        const newHolder = winners[0];
+        if(!prev){
+          events.push({ kind:'title', who:newHolder,
+            text: nm(newHolder) + ' became the first ' + t.name + ' in company history.' });
+          beltHolder[m.title_id] = newHolder;
+        } else if(prev !== newHolder){
+          events.push({ kind:'title', who:newHolder,
+            text: nm(newHolder) + ' took the ' + t.name + ' from ' + nm(prev) + '.' });
+          beltHolder[m.title_id] = newHolder;
+        } else {
+          events.push({ kind:'title', who:prev,
+            text: nm(prev) + ' held onto the ' + t.name + '.' });
+        }
+      }
+
+      bouts.push({ m, order: bi + 1, sides,
+        isMain: !!m.is_main_event || bi === ms.length - 1 });
+    });
+
+    const rated = ms.map(m => ({ m, r:RATINGS[m.id] }))
+      .filter(x => x.r && x.r.avg_stars)
+      .sort((a,b) => b.r.avg_stars - a.r.avg_stars)[0];
+
+    chapters.push({
+      show: sh, number: idx + 1, bouts, events,
+      motn: rated || null,
+      moments: MOMENTS.filter(x => x.show_id === sh.id),
+      snapshot: JSON.parse(JSON.stringify(rec)),
+      belts: Object.assign({}, beltHolder)
+    });
+  });
+  return chapters;
+}
+function sideOf(m){
+  if(m.mode === 'tag'){
+    const a = m.team_a || [], b = m.team_b || [];
+    return m.winning_team === 'A' ? { win:a, lose:b } : { win:b, lose:a };
+  }
+  if(m.mode === 'singles') return { win:[m.winner], lose:[m.loser] };
+  return { win:[m.winner], lose:(m.participants || []).filter(x => x && x !== m.winner) };
+}
+
+/* ---------------- prose ---------------- */
+function boutSentence(b){
+  const m = b.m, s = b.sides;
+  const w = s.win.map(nm).join(' & '), l = s.lose.map(nm).join(' & ');
+  const meth = m.method && m.method !== 'tbd' ? METHOD[m.method] || m.method : null;
+  let core;
+  if(m.mode === 'singles' || m.mode === 'tag'){
+    core = `<span class="b-w" onclick="openThread('${s.win[0]}')">${esc(w)}</span> defeated <span class="b-l" onclick="openThread('${s.lose[0]}')">${esc(l)}</span>`;
+  } else {
+    core = `<span class="b-w" onclick="openThread('${s.win[0]}')">${esc(w)}</span> won over ${esc(l)}`;
+  }
+  return core + (meth ? ' by ' + esc(meth) : '');
+}
+/* Written from the data — reads like a recap, not a table dump. */
+function autoRecap(ch){
+  const sh = ch.show;
+  const n = ch.bouts.length;
+  if(!n) return 'The card for this show was never recorded.';
+  const main = ch.bouts.find(b => b.isMain) || ch.bouts[ch.bouts.length-1];
+  const parts = [];
+  const venue = sh.venue ? ' at ' + sh.venue : '';
+  parts.push(`${sh.name} ran on ${fmtDate(showDate(sh))}${venue}, ${n} match${n===1?'':'es'} deep.`);
+  if(main){
+    const s = main.sides;
+    parts.push(`In the main event, ${nm(s.win[0])} came out ahead of ${s.lose.map(nm).join(' and ')}` +
+      (main.m.method && main.m.method !== 'tbd' ? ' by ' + (METHOD[main.m.method]||main.m.method) : '') + '.');
+  }
+  const titles = ch.events.filter(e => e.kind === 'title');
+  if(titles.length) parts.push(titles.map(e => e.text).join(' '));
+  const debuts = ch.events.filter(e => e.kind === 'debut');
+  if(debuts.length === 1) parts.push(debuts[0].text);
+  else if(debuts.length > 1) parts.push(`${debuts.length} competitors made their first appearance.`);
+  const upsets = ch.events.filter(e => e.kind === 'upset');
+  if(upsets.length) parts.push(upsets.map(e => e.text).join(' '));
+  const streaks = ch.events.filter(e => e.kind === 'streak');
+  if(streaks.length) parts.push(streaks.map(e => e.text).join(' '));
+  if(ch.motn) parts.push(`The crowd rated ${boutTitle(ch.motn.m)} highest at ${Number(ch.motn.r.avg_stars).toFixed(1)} stars.`);
+  return parts.join(' ');
+}
+function boutTitle(m){
+  const s = sideOf(m);
+  if(m.mode === 'singles') return nm(m.p1) + ' vs ' + nm(m.p2);
+  if(m.mode === 'tag') return (m.team_a||[]).map(nm).join(' & ') + ' vs ' + (m.team_b||[]).map(nm).join(' & ');
+  return (m.participants||[]).map(nm).join(', ');
+}
+const EV_ICON = { debut:'🎬', upset:'⚡', streak:'🔥', title:'🏆', moment:'★',
+  betrayal:'🗡️', milestone:'📌', rivalry:'⚔️', injury:'🩹', farewell:'🕯️' };
+
+
+function roman(n){
+  const map = [[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let out = '';
+  n = Math.max(1, Math.floor(n || 1));
+  for(const [v,sym] of map){ while(n >= v){ out += sym; n -= v; } }
+  return out || 'I';
+}
+
+/* ================================================================
+   PAGINATION — flow content blocks into real fixed-height pages by
+   measuring them, so nothing ever overflows a page edge.
+   ================================================================ */
+let PAGES = [], LEAF_COUNT = 0, spread = 0, CHAPTERS = [], TOC = [];
+
+function blocksForChapter(ch, chapterNo){
+  const sh = ch.show;
+  const B = [];
+  const kind = sh.show_type === 'ple' ? 'ple' : sh.show_type === 'house' ? 'house' : 'weekly';
+  const kindLabel = kind === 'ple' ? 'Premium Live Event' : kind === 'house' ? 'House Show' : 'Weekly Show';
+  const d = showDate(sh);
+
+  B.push({ head:true, html:
+    `<span class="kind ${kind}">${kindLabel}</span>
+     <h2 class="ch">${esc(sh.chapter_title || sh.name)}</h2>
+     <div class="ch-meta">${esc(fmtDate(d))}${sh.venue?' · '+esc(sh.venue):''}${
+       sh.chapter_title?'<br>'+esc(sh.name):''}</div>` });
+
+  if(sh.chronicle_intro){
+    String(sh.chronicle_intro).split(/\n{2,}/).forEach((para,i) =>
+      B.push({ html:`<p class="pr ${i===0?'first':''}">${esc(para.trim())}</p>` }));
+  }
+  B.push({ html:`<div class="sec">What Happened</div>` , keep:true });
+  autoRecap(ch).split(/(?<=\.)\s+(?=[A-Z])/).reduce((acc,s)=>{
+    // group sentences into readable paragraphs of ~2
+    if(acc.length && acc[acc.length-1].n < 2){ acc[acc.length-1].t += ' ' + s; acc[acc.length-1].n++; }
+    else acc.push({ t:s, n:1 });
+    return acc;
+  }, []).forEach((p,i) => B.push({ html:`<p class="pr ${(!sh.chronicle_intro && i===0)?'first':''}">${esc(p.t)}</p>` }));
+
+  if(ch.bouts.length){
+    B.push({ html:`<div class="sec">The Card</div>`, keep:true });
+    ch.bouts.forEach(b => {
+      const t = b.m.title_id ? (TITLES[b.m.title_id]||{}).name : null;
+      const r = RATINGS[b.m.id];
+      B.push({ html:`<div class="bout ${b.isMain?'main':''}">
+        <div class="b-line">${boutSentence(b)}</div>
+        <div class="b-meta">${b.isMain?'Main event · ':''}${esc(typeName(b.m.type_key))}${
+          t?` · <span class="b-belt">🏆 ${esc(t)}</span>`:''}${
+          r?` · ${Number(r.avg_stars).toFixed(1)}★`:''}</div>
+      </div>` });
+    });
+  }
+  if(ch.events.length){
+    B.push({ html:`<div class="sec">Noted By The Record</div>`, keep:true });
+    ch.events.forEach(e => B.push({ html:
+      `<div class="note"><span class="i">${EV_ICON[e.kind]||'★'}</span><span>${esc(e.text)}</span></div>` }));
+  }
+  if(ch.moments.length){
+    B.push({ html:`<div class="sec">Moments</div>`, keep:true });
+    ch.moments.forEach(mo => B.push({ html:`<div class="mom">
+      <div class="h">${EV_ICON[mo.kind]||'★'} ${esc(mo.headline)}</div>
+      ${mo.body?`<div class="b">${esc(mo.body)}</div>`:''}
+      ${mo.image_url?`<img src="${esc(mo.image_url)}" alt="">`:''}</div>` }));
+  }
+  if(sh.chronicle_outro){
+    B.push({ html:`<div class="sec">What It Meant</div>`, keep:true });
+    String(sh.chronicle_outro).split(/\n{2,}/).forEach(para =>
+      B.push({ html:`<p class="pr">${esc(para.trim())}</p>` }));
+  }
+  B.push({ html:`<div class="sec">Where Things Stood</div>`, keep:true });
+  B.push({ html:`<p class="pr">${esc(standingsSentence(ch))}</p>` });
+  return B;
+}
+function standingsSentence(ch){
+  const rows = Object.entries(ch.snapshot).map(([id,r]) => ({ id, ...r }))
+    .filter(r => r.matches > 0)
+    .sort((a,b) => (b.w-b.l)-(a.w-a.l) || b.w-a.w).slice(0,5);
+  if(!rows.length) return 'No records had been set yet.';
+  const belts = Object.entries(ch.belts).filter(([,w]) => w)
+    .map(([t,w]) => nm(w) + ' held the ' + ((TITLES[t]||{}).name || 'championship'));
+  return (belts.length ? belts.join('. ') + '. ' : 'No championships existed yet. ') +
+    'Record board: ' + rows.map(r => `${nm(r.id)} ${r.w}-${r.l}`).join(', ') + '.';
+}
+
+/* measure a page's usable height once, then flow blocks into pages */
+function paginate(){
+  PAGES = []; TOC = [];
+  const probe = document.createElement('div');
+  probe.className = 'face recto';
+  probe.style.cssText = 'position:fixed; left:-9999px; top:0; width:' + pageW() + 'px; height:' + pageH() + 'px;';
+  probe.innerHTML = '<div class="pg"><div class="run"><span>x</span></div><div class="pgbody" id="probeBody"></div></div>';
+  document.getElementById('measure').appendChild(probe);
+  const body = probe.querySelector('#probeBody');
+  const limit = body.clientHeight;
+
+  // front matter
+  PAGES.push({ type:'cover' });
+  PAGES.push({ type:'title' });
+
+  const chrono = CHAPTERS.slice().sort((a,b) => a.number - b.number);
+  const eraOf = id => ERAS.find(e => e.id === id);
+  let lastEra = null;
+
+  chrono.forEach(ch => {
+    const eid = ch.show.era_id || '_';
+    if(eid !== lastEra){
+      lastEra = eid;
+      const era = eraOf(eid);
+      PAGES.push({ type:'era', era, count: chrono.filter(c => (c.show.era_id||'_') === eid).length });
+    }
+    const startPage = PAGES.length;
+    const blocks = blocksForChapter(ch, ch.number);
+    let cur = [];
+    const flush = () => { if(cur.length){ PAGES.push({ type:'text', ch, html:cur.join('') }); cur = []; } };
+    blocks.forEach((blk, i) => {
+      const test = cur.concat(blk.html).join('');
+      body.innerHTML = test;
+      if(body.scrollHeight > limit && cur.length){
+        // a section heading should never be stranded at the foot of a page
+        if(blk.keep){ flush(); }
+        else { flush(); }
+        body.innerHTML = blk.html;
+      }
+      cur.push(blk.html);
+    });
+    flush();
+    TOC.push({ ch, page: startPage, era: eraOf(eid) });
+  });
+
+  PAGES.push({ type:'end' });
+  if(PAGES.length % 2 !== 0) PAGES.push({ type:'blank' });
+  probe.remove();
+  LEAF_COUNT = Math.ceil(PAGES.length / 2);
+}
+function pageW(){
+  const bk = document.getElementById('book');
+  return Math.max(220, (bk.clientWidth * 0.968) / (innerWidth <= 820 ? 1 : 2));
+}
+function pageH(){
+  const bk = document.getElementById('book');
+  return Math.max(280, bk.clientHeight * 0.964);
+}
+
+/* ---------------- page rendering ---------------- */
+function pageInner(p, index){
+  if(!p) return '';
+  if(p.type === 'cover') return `<div class="cover">
+      <img src="${LOGO}" alt=""><div class="ct">The Chronicle</div>
+      <div class="cs">Vigilance Wrestling Association</div></div>`;
+  if(p.type === 'title') return `<div class="pg"><div class="tp">
+      <div class="sm">The Complete Record Of</div>
+      <div class="big">Vigilance<br>Wrestling Association</div>
+      <div class="rule"></div>
+      <div class="desc">Every card, every finish, every championship — written from the results themselves and kept here so nothing is forgotten.</div>
+      <div class="sm">${CHAPTERS.length} chapter${CHAPTERS.length===1?'':'s'} · ${MATCHES.length} recorded match${MATCHES.length===1?'':'es'}</div>
+    </div></div>`;
+  if(p.type === 'era'){
+    const e = p.era;
+    return `<div class="pg"><div class="tp">
+      <div class="vol">${esc(roman(e ? (e.sort_order||1) : 1))}</div>
+      <div class="sm">Volume ${esc(roman(e ? (e.sort_order||1) : 1))}</div>
+      <div class="big">${esc(e ? e.name : 'Uncategorised')}</div>
+      ${e && e.subtitle ? `<div class="sm">${esc(e.subtitle)}</div>` : ''}
+      <div class="rule"></div>
+      ${e && e.description ? `<div class="desc">${esc(e.description)}</div>` : ''}
+      <div class="sm">${p.count} chapter${p.count===1?'':'s'}</div>
+    </div></div>`;
+  }
+  if(p.type === 'end') return `<div class="pg"><div class="tp">
+      <div class="sm">To be continued</div>
+      <div class="big">The story is<br>still being written</div>
+      <div class="rule"></div>
+      <div class="desc">Every show you run adds a chapter here automatically.</div>
+      <img class="crest" src="${LOGO}" alt="">
+    </div></div>`;
+  if(p.type === 'blank') return `<div class="pg"></div>`;
+  const sh = p.ch.show;
+  const side = index % 2 === 0 ? 'r' : 'l';
+  return `<div class="pg">
+    <div class="run">
+      <span>${esc((sh.chapter_title || sh.name).slice(0,42))}</span>
+      <span class="r">Chapter ${esc(roman(p.ch.number))}</span>
+    </div>
+    <div class="pgbody">${p.html}</div>
+    <div class="folio">${index + 1}</div>
+  </div>`;
+}
+function buildLeaves(){
+  const wrap = document.getElementById('leaves');
+  let html = '';
+  for(let i = 0; i < LEAF_COUNT; i++){
+    const rectoIdx = i * 2, versoIdx = i * 2 + 1;
+    html += `<div class="leaf" data-i="${i}">
+      <div class="face recto">${pageInner(PAGES[rectoIdx], rectoIdx)}</div>
+      <div class="face verso">${pageInner(PAGES[versoIdx], versoIdx)}</div>
+    </div>`;
+  }
+  wrap.innerHTML = html;
+}
+/* spread = how many leaves are turned. 0 = closed on the cover. */
+function applySpread(){
+  const leaves = [...document.querySelectorAll('.leaf')];
+  leaves.forEach((el, i) => {
+    const turned = i < spread;
+    el.classList.toggle('flipped', turned);
+    el.style.zIndex = turned ? (i + 1) : (LEAF_COUNT + 1 - i);
+  });
+  document.getElementById('book').classList.toggle('closed', spread === 0);
+  const shown = Math.min(PAGES.length, spread * 2);
+  document.getElementById('cnt').textContent = spread === 0
+    ? 'Cover' : Math.min(PAGES.length, spread*2) + ' / ' + PAGES.length;
+  document.getElementById('progI').style.width = (spread / Math.max(1,LEAF_COUNT) * 100) + '%';
+  document.getElementById('navP').disabled = spread === 0;
+  document.getElementById('navN').disabled = spread >= LEAF_COUNT;
+}
+function nextPage(){ if(spread < LEAF_COUNT){ spread++; applySpread(); sfxTurn(); } }
+function prevPage(){ if(spread > 0){ spread--; applySpread(); sfxTurn(true); } }
+function gotoPage(i){
+  const target = Math.max(0, Math.min(LEAF_COUNT, Math.ceil((i + 1) / 2)));
+  if(target === spread) return;
+  spread = target; applySpread(); sfxTurn();
+}
+/* ---------------- sound ---------------- */
+let actx = null, sndOn = qs.get('mute') !== '1';
+function ac(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(actx && actx.state === 'suspended') actx.resume(); return actx; }
+function sfxTurn(rev){
+  if(!sndOn) return; const a = ac(); if(!a) return;
+  const t = a.currentTime, dur = 0.42;
+  const buf = a.createBuffer(1, Math.floor(a.sampleRate*dur), a.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){
+    const k = i/d.length;
+    const env = Math.sin(Math.PI*k) * Math.pow(1-k, 0.6);
+    d[i] = (Math.random()*2-1) * env * 0.5;
+  }
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type='bandpass'; f.Q.value=0.8;
+  f.frequency.setValueAtTime(rev?2600:1200, t);
+  f.frequency.exponentialRampToValueAtTime(rev?900:3200, t+dur*0.8);
+  const g = a.createGain(); g.gain.value=0.22;
+  src.connect(f); f.connect(g); g.connect(a.destination); src.start(t);
+}
+function toggleSound(){
+  sndOn = !sndOn;
+  const b = document.getElementById('bSnd');
+  b.classList.toggle('on', sndOn);
+  b.textContent = sndOn ? '🔊 Pages' : '🔇 Pages';
+  if(sndOn) sfxTurn();
+}
+/* ---------------- toc / search / threads ---------------- */
+function openToc(){
+  const el = document.getElementById('tocList');
+  let lastEra = null, html = '';
+  TOC.forEach(t => {
+    const eid = t.era ? t.era.id : '_';
+    if(eid !== lastEra){
+      lastEra = eid;
+      html += `<div class="toc-era">${esc(t.era ? t.era.name : 'Uncategorised')}</div>`;
+    }
+    const d = showDate(t.ch.show);
+    html += `<div class="toc-i" onclick="gotoPage(${t.page}); closeToc();">
+      <span class="rn">${esc(roman(t.ch.number))}</span>
+      <span class="tt">${esc(t.ch.show.chapter_title || t.ch.show.name)}</span>
+      <span class="dt">${d?esc(d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})):''}</span>
+    </div>`;
+  });
+  el.innerHTML = html || '<div class="toc-i">Nothing recorded yet.</div>';
+  document.getElementById('tocPop').classList.add('open');
+}
+function closeToc(){ document.getElementById('tocPop').classList.remove('open'); }
+let searchTimer = null;
+function onSearch(){
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    const q = document.getElementById('q').value.trim().toLowerCase();
+    if(!q) return;
+    const hit = TOC.find(t => {
+      const c = t.ch;
+      if((c.show.name||'').toLowerCase().includes(q)) return true;
+      if((c.show.chapter_title||'').toLowerCase().includes(q)) return true;
+      return c.bouts.some(b => [...b.sides.win, ...b.sides.lose].map(nm).join(' ').toLowerCase().includes(q)
+        || typeName(b.m.type_key).toLowerCase().includes(q));
+    });
+    if(hit) gotoPage(hit.page);
+  }, 260);
+}
+function openThread(id){
+  const hit = TOC.find(t => t.ch.bouts.some(b =>
+    b.sides.win.includes(id) || b.sides.lose.includes(id)));
+  if(hit) gotoPage(hit.page);
+}
+/* ---------------- input ---------------- */
+function bindInput(){
+  addEventListener('keydown', e => {
+    if(['INPUT','TEXTAREA'].includes((e.target.tagName||'').toUpperCase())) return;
+    if(e.key === 'ArrowRight' || e.key === 'PageDown'){ e.preventDefault(); nextPage(); }
+    else if(e.key === 'ArrowLeft' || e.key === 'PageUp'){ e.preventDefault(); prevPage(); }
+    else if(e.key === 'Home'){ spread = 0; applySpread(); }
+    else if(e.key === 'End'){ spread = LEAF_COUNT; applySpread(); }
+    else if(e.key === 'Escape') closeToc();
+  });
+  const bk = document.getElementById('book');
+  let sx = 0, sy = 0, tracking = false;
+  bk.addEventListener('touchstart', e => {
+    tracking = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; ac();
+  }, { passive:true });
+  bk.addEventListener('touchend', e => {
+    if(!tracking) return; tracking = false;
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if(Math.abs(dx) > 46 && Math.abs(dx) > Math.abs(dy)){ dx < 0 ? nextPage() : prevPage(); }
+  });
+  bk.addEventListener('mousedown', ac, { once:true });
+}
+/* ---------------- boot ---------------- */
+let rebuildTimer = null;
+function rebuild(keep){
+  const before = spread;
+  paginate();
+  buildLeaves();
+  spread = keep ? Math.min(before, LEAF_COUNT) : before;
+  applySpread();
+}
+(async function init(){
+  await load();
+  CHAPTERS = buildHistory();
+  rebuild();
+
+  const wantShow = qs.get('show');
+  if(wantShow){
+    const t = TOC.find(x => x.ch.show.id === wantShow);
+    if(t) spread = Math.ceil((t.page + 1) / 2);
+  }
+  const wantW = qs.get('w');
+  if(wantW){
+    const t = TOC.find(x => x.ch.bouts.some(b => b.sides.win.includes(wantW) || b.sides.lose.includes(wantW)));
+    if(t) spread = Math.ceil((t.page + 1) / 2);
+  }
+  applySpread();
+  document.getElementById('bSnd').textContent = sndOn ? '🔊 Pages' : '🔇 Pages';
+  document.getElementById('bSnd').classList.toggle('on', sndOn);
+  bindInput();
+  document.getElementById('loading').style.display = 'none';
+  if(isDemo){
+    const b = document.createElement('div');
+    b.className = 'banner';
+    b.textContent = 'Sample history — your own shows fill these pages once results are revealed';
+    document.body.appendChild(b);
+  }
+  addEventListener('resize', () => {
+    clearTimeout(rebuildTimer);
+    rebuildTimer = setTimeout(() => rebuild(true), 260);
+  });
+})();
+</script>
+</body>
+</html>
