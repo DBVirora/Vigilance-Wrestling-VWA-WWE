@@ -692,6 +692,30 @@
   body[data-season="spring"] .navbrand img{ filter:drop-shadow(0 2px 12px rgba(228,106,158,0.6)); }
 
   @media(prefers-reduced-motion:reduce){ #leafLayer{ display:none; } }
+  .belt-row{ display:inline-flex; align-items:center; gap:3px; margin-left:5px; vertical-align:middle; }
+  .belt-chip{ height:15px; width:auto; max-width:26px; object-fit:contain;
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
+  .belt-chip.sm{ height:13px; }
+  .belt-txt{ font-size:11px; }
+  .champ-card{ position:relative; }
+  .champ-belt{ position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    height:46px; width:auto; max-width:90px; object-fit:contain; opacity:0.92;
+    filter:drop-shadow(0 3px 10px rgba(0,0,0,0.5)); pointer-events:none; }
+  .belt-badge{ display:inline-flex; align-items:center; gap:5px; border:1px solid;
+    background:rgba(227,189,106,0.10); }
+  .belt-badge img{ height:17px; width:auto; max-width:30px; object-fit:contain; }
+  .w-thumb.champ{ border-color:var(--amber); }
+  .w-thumb{ position:relative; }
+  .thumb-crown{ position:absolute; top:-5px; right:-3px; font-size:11px; z-index:2;
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
+  .rc-slot{ font-family:'Oswald'; font-size:9.5px; letter-spacing:0.13em; text-transform:uppercase;
+    padding:3px 9px; border-radius:11px; }
+  .rc-slot.main{ background:rgba(227,189,106,0.20); color:var(--amber); }
+  .rc-slot.co{ background:rgba(214,45,140,0.16); color:var(--gold-bright); }
+  .rc-belt{ display:inline-flex; align-items:center; gap:5px; }
+  .rc-belt img{ height:17px; width:auto; max-width:30px; object-fit:contain; }
+  .bout-tag.slot.main{ background:rgba(227,189,106,0.20); color:var(--amber); }
+  .bout-tag.slot.co{ background:rgba(214,45,140,0.16); color:var(--gold-bright); }
 </style>
 </head>
 <body>
@@ -961,7 +985,7 @@ const TYPE_LABELS = { singles:'Singles', tag_team:'Tag Team', tornado_tag:'Torna
 
 let records = [], methods = [], champions = [], shows = [], showMatches = [], titleHistory = [], titles = [];
 let wrestlerBios = [], rosterFilter = 'all', selectedWrestlerId = null;
-let franchises = [], motn = [];
+let franchises = [], motn = [], wrestlerBelts = [];
 let pools = [], myBets = [], ratings = [], myRatings = [], leaderboard = [];
 let economy = { min_bet:10, max_bet:5000, daily_bonus:150, starting_balance:1000 };
 let me = null, myProfile = null, picks = {};
@@ -1128,6 +1152,7 @@ async function loadAll(){
     db.from('v_records').select('*'),
     db.from('v_method_breakdown').select('*'),
     db.from('v_current_champions').select('*'),
+    db.from('v_wrestler_belts').select('*'),
     db.from('shows').select('*').eq('published', true).order('date', { ascending:false, nullsFirst:false }),
     db.from('v_public_matches').select('*').order('position'),
     db.from('titles').select('*'),
@@ -1145,11 +1170,12 @@ async function loadAll(){
     (x.value && x.value.error)).length;
 
   records = pick(0) || []; methods = pick(1) || []; champions = pick(2) || [];
-  shows = pick(3) || []; showMatches = pick(4) || []; titles = pick(5) || []; titleHistory = pick(6) || [];
-  pools = pick(7) || []; ratings = pick(8) || [];
-  franchises = pick(9) || []; motn = pick(10) || [];
-  leaderboard = pick(11) || [];
-  const ec = pick(12);
+  wrestlerBelts = pick(3) || [];
+  shows = pick(4) || []; showMatches = pick(5) || []; titles = pick(6) || []; titleHistory = pick(7) || [];
+  pools = pick(8) || []; ratings = pick(9) || [];
+  franchises = pick(10) || []; motn = pick(11) || [];
+  leaderboard = pick(12) || [];
+  const ec = pick(13);
   if(ec && ec.value) economy = Object.assign(economy, ec.value);
 
   if(failed === q.length) throw new Error('all queries failed');
@@ -1428,11 +1454,14 @@ function boutHtml(m, i){
   if(m.mode === 'singles') sides = `<span class="bout-side">${esc(nameOf(m.p1))}</span><span class="bout-vs">VS</span><span class="bout-side">${esc(nameOf(m.p2))}</span>`;
   else if(m.mode === 'tag') sides = `<span class="bout-side">${(m.team_a||[]).map(nameOf).map(esc).join(' & ')}</span><span class="bout-vs">VS</span><span class="bout-side">${(m.team_b||[]).map(nameOf).map(esc).join(' & ')}</span>`;
   else sides = `<span class="bout-side">${(m.participants||[]).map(nameOf).map(esc).join(' · ')}</span>`;
+  const slotTag = (m.card_slot === 'main' || m.is_main_event) ? '<span class="bout-tag slot main">Main Event</span>'
+    : m.card_slot === 'comain' ? '<span class="bout-tag slot co">Co-Main</span>' : '';
   const state = m.resolved ? `<span class="bout-tag done">✓ ${esc(nameOf(m.winner) || 'Result in')}</span>`
             : m.has_result ? '<span class="bout-tag pending">⏳ Result Pending</span>' : '';
   const art = m.poster_url ? `<img class="bout-art" src="${esc(m.poster_url)}" onclick="openLightbox('${esc(m.poster_url)}')" alt="match art">` : '';
   return `<div class="bout">${art}<span class="bout-num">${i+1}</span>${sides}
     <span class="bout-tags">
+      ${slotTag}
       ${title?`<span class="bout-tag title">🏆 ${esc(title)}</span>`:''}
       <span class="bout-tag">${esc(type)}</span>
       ${m.betting_open?'<span class="bout-tag bet">Predictions Open</span>':''}
@@ -1514,7 +1543,9 @@ function renderHome(){
     const reign = titleHistory.find(h => h.title_id === c.title_id && !h.lost_date);
     const since = reign && reign.won_date ? 'since ' + new Date(reign.won_date).toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'}) : '';
     return `
-    <div class="champ-card">${avatar(c.photo_url, c.wrestler_name)}
+    <div class="champ-card" style="${c.title_color?`border-color:${esc(c.title_color)};`:''}">
+      ${c.title_image?`<img class="champ-belt" src="${esc(c.title_image)}" alt="${esc(c.title_name)}">`:''}
+      ${avatar(c.photo_url, c.wrestler_name)}
       <div><div class="t-name">🏆 ${esc(c.title_name)}</div>
       <div class="w-name">${c.wrestler_name ? esc(c.wrestler_name) : 'Vacant'}</div>
       <div class="defs">${c.wrestler_name ? (since ? since + ' · ' : '') + c.defenses + ' defense' + (c.defenses===1?'':'s') : ''}</div></div>
@@ -1614,7 +1645,8 @@ function renderRosterPage(){
   if(!list.some(r => r.wrestler_id === selectedWrestlerId)) selectedWrestlerId = list[0].wrestler_id;
 
   strip.innerHTML = list.map(r => `
-    <div class="w-thumb ${r.wrestler_id===selectedWrestlerId?'sel':''}" onclick="selectWrestler('${r.wrestler_id}')" title="${esc(r.name)}">
+    <div class="w-thumb ${r.wrestler_id===selectedWrestlerId?'sel':''} ${beltsOf(r.wrestler_id).length?'champ':''}" onclick="selectWrestler('${r.wrestler_id}')" title="${esc(r.name)}${beltsOf(r.wrestler_id).length?' — champion':''}">
+      ${beltsOf(r.wrestler_id).length?'<span class="thumb-crown">🏆</span>':''}
       ${r.photo_url ? `<img src="${esc(r.photo_url)}" alt="${esc(r.name)}">` : `<span>${esc(r.name.split(/\s+/).map(p=>p[0]).join('').slice(0,2).toUpperCase())}</span>`}
     </div>`).join('');
 
@@ -1635,9 +1667,10 @@ function renderWrestlerProfile(r, belts){
       <div class="profile-nameblock">
         ${b.nickname ? `<div class="p-nick">"${esc(b.nickname)}"</div>` : ''}
         <div class="p-name">${esc(r.name)}</div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px;">
           <span class="align-badge ${alignCls}">${esc(r.align)}</span>
-          ${belts.map(x=>`<span class="belt-badge">🏆 ${esc(x)}</span>`).join('')}
+          ${beltsOf(r.wrestler_id).map(b => `<span class="belt-badge" style="border-color:${esc(b.color||'#e3bd6a')};">
+            ${b.image_url?`<img src="${esc(b.image_url)}">`:'🏆'} ${esc(b.title_name)}</span>`).join('')}
         </div>
       </div>
     </div>
@@ -1686,6 +1719,15 @@ function renderChampionsPage(){
   }).join('') : '<div class="empty">No championships established yet.</div>';
 }
 
+function beltsOf(id){ return wrestlerBelts.filter(b => b.wrestler_id === id); }
+function beltBadges(id, size){
+  const bs = beltsOf(id);
+  if(!bs.length) return '';
+  return `<span class="belt-row">` + bs.map(b => b.image_url
+    ? `<img class="belt-chip ${size||''}" src="${esc(b.image_url)}" title="${esc(b.title_name)}">`
+    : `<span class="belt-txt" style="color:${esc(b.color||'#e3bd6a')};" title="${esc(b.title_name)}">🏆</span>`
+  ).join('') + `</span>`;
+}
 function photoFor(id){
   const b = bioOf(id);
   if(b && b.photo_url) return b.photo_url;
@@ -1705,7 +1747,7 @@ function fighterCell(id, outcome, side){
       ${ph ? `<img src="${esc(ph)}" alt="${esc(nm)}">` : `<span class="fc-ini">${esc(initialsOf(nm))}</span>`}
       <span class="fc-mark">${mark}</span>
     </div>
-    <div class="fc-name">${esc(nm)}</div>
+    <div class="fc-name">${esc(nm)}${beltBadges(id,'sm')}</div>
   </div>`;
 }
 function fighterStack(ids, outcome, side){
@@ -1718,6 +1760,17 @@ function jumpToWrestler(id){
   selectedWrestlerId = id;
   go('roster');
   renderRosterPage();
+}
+function rcSlot(m){
+  if(m.card_slot === 'main' || m.is_main_event) return '<span class="rc-slot main">Main Event</span>';
+  if(m.card_slot === 'comain') return '<span class="rc-slot co">Co-Main</span>';
+  return '';
+}
+function rcBelt(m, titleName){
+  if(!titleName) return '';
+  const t = titles.find(x => x.id === m.title_id);
+  return `<span class="rc-belt" style="${t&&t.color?`color:${esc(t.color)};`:''}">${
+    t && t.image_url ? `<img src="${esc(t.image_url)}">` : '🏆'} ${esc(titleName)}</span>`;
 }
 function matchLine(m){
   const type = TYPE_LABELS[m.type_key] || m.type_key;
@@ -1745,8 +1798,9 @@ function matchLine(m){
       ${art}
       <div class="rc-main">
         <div class="rc-top">
+          ${rcSlot(m)}
           <span class="rc-type">${esc(type)}</span>
-          ${titleName?`<span class="rc-belt">🏆 ${esc(titleName)}</span>`:''}
+          ${rcBelt(m, titleName)}
           ${flag}
         </div>
         <div class="rc-bout">${left}<div class="rc-vs">${mid}</div>${right}</div>
